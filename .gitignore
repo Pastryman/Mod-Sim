@@ -1,6 +1,8 @@
+**/cmake-build-debug/
+**/.idea/
+
 # Prerequisites
 *.d
-
 # Compiled Object files
 *.slo
 *.lo
