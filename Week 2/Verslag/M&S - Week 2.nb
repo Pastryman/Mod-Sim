@@ -1,0 +1,183 @@
+(* Content-type: application/vnd.wolfram.mathematica *)
+
+(*** Wolfram Notebook File ***)
+(* http://www.wolfram.com/nb *)
+
+(* CreatedBy='Mathematica 11.0' *)
+
+(*CacheID: 234*)
+(* Internal cache information:
+NotebookFileLineBreakTest
+NotebookFileLineBreakTest
+NotebookDataPosition[       158,          7]
+NotebookDataLength[      4800,        175]
+NotebookOptionsPosition[      3966,        138]
+NotebookOutlinePosition[      4323,        154]
+CellTagsIndexPosition[      4280,        151]
+WindowFrame->Normal*)
+
+(* Beginning of Notebook Content *)
+Notebook[{
+
+Cell[CellGroupData[{
+Cell["Modelling and Simulations - Week 2", "Title",
+ CellChangeTimes->{{3.7273385296378508`*^9, 3.727338540786573*^9}, {
+  3.727698178528098*^9, 3.727698183578499*^9}}],
+
+Cell[CellGroupData[{
+
+Cell["Exercise 2", "Chapter",
+ CellChangeTimes->{{3.7273385562907963`*^9, 3.727338565250049*^9}, {
+  3.727698192956168*^9, 3.7276981952589808`*^9}}],
+
+Cell[CellGroupData[{
+
+Cell["CC", "Subchapter",
+ CellChangeTimes->{{3.727698536023844*^9, 3.727698536168577*^9}}],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[{
+ RowBox[{
+  RowBox[{"l", "=", "1"}], ";"}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{"d", "=", "1"}], ";"}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{"Vlat", "=", 
+   RowBox[{"l", " ", "l", " ", "l"}]}], " ", ";"}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{"Vpart", "=", 
+   RowBox[{
+    FractionBox["4", "3"], "\[Pi]", " ", 
+    SuperscriptBox[
+     RowBox[{"(", 
+      RowBox[{
+       FractionBox["1", "2"], "d"}], ")"}], "3"]}]}], 
+  ";"}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{"Vpart", "/", "Vlat"}], "//", 
+  "N"}], "\[IndentingNewLine]"}], "Input",
+ CellChangeTimes->{{3.7276982001885023`*^9, 3.727698312110937*^9}, {
+  3.727698472941285*^9, 3.727698473052676*^9}, {3.727698528280838*^9, 
+  3.727698555742467*^9}}],
+
+Cell[BoxData["0.5235987755982988`"], "Output",
+ CellChangeTimes->{3.7276985570204763`*^9}]
+}, Open  ]]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell["FCC", "Subchapter",
+ CellChangeTimes->{{3.7276985442635612`*^9, 3.727698544582234*^9}}],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[{
+ RowBox[{"Remove", "[", "l", "]"}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{"l", "=", "1"}], ";"}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{"d", "=", 
+   SqrtBox[
+    RowBox[{
+     FractionBox["1", "2"], 
+     SuperscriptBox["l", "2"]}]]}], ";"}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{"Vlat", "=", 
+   RowBox[{"l", " ", "l", " ", "l"}]}], " ", ";"}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{"Vpart", "=", 
+   RowBox[{
+    FractionBox["4", "3"], "\[Pi]", " ", 
+    SuperscriptBox[
+     RowBox[{"(", 
+      RowBox[{
+       FractionBox["1", "2"], "d"}], ")"}], "3"]}]}], 
+  ";"}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{"4", "*", 
+   RowBox[{"Vpart", "/", "Vlat"}]}], "//", "N"}]}], "Input",
+ CellChangeTimes->{{3.727698563294484*^9, 3.7276986169417562`*^9}, {
+  3.7276986723873*^9, 3.7276986985857363`*^9}, {3.727698728616761*^9, 
+  3.727698728952223*^9}, {3.7282150101080647`*^9, 3.7282150244466352`*^9}, {
+  3.728215147232882*^9, 3.72821514954362*^9}}],
+
+Cell[BoxData["0.7404804896930609`"], "Output",
+ CellChangeTimes->{{3.727698589209708*^9, 3.727698617697274*^9}, 
+   3.727698699201248*^9, 3.7276987296041393`*^9, 3.728214965994488*^9, {
+   3.728215013151267*^9, 3.7282150250199223`*^9}, 3.728215149957111*^9}]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"4", "*", 
+  FractionBox["4", "3"], "\[Pi]", " ", 
+  SuperscriptBox[
+   RowBox[{"(", 
+    RowBox[{
+     FractionBox["1", "2"], "d"}], ")"}], "3"]}]], "Input",
+ CellChangeTimes->{{3.728214971068696*^9, 3.728214971519765*^9}}],
+
+Cell[BoxData[
+ FractionBox[
+  RowBox[{
+   SuperscriptBox[
+    RowBox[{"(", 
+     SuperscriptBox["l", "2"], ")"}], 
+    RowBox[{"3", "/", "2"}]], " ", "\[Pi]"}], 
+  RowBox[{"3", " ", 
+   SqrtBox["2"]}]]], "Output",
+ CellChangeTimes->{
+  3.728214973103118*^9, {3.728215015124886*^9, 3.72821502689694*^9}}]
+}, Open  ]]
+}, Open  ]]
+}, Open  ]]
+}, Open  ]]
+},
+WindowSize->{808, 617},
+WindowMargins->{{4, Automatic}, {Automatic, 4}},
+FrontEndVersion->"11.0 for Mac OS X x86 (32-bit, 64-bit Kernel) (September \
+21, 2016)",
+StyleDefinitions->"Default.nb"
+]
+(* End of Notebook Content *)
+
+(* Internal cache information *)
+(*CellTagsOutline
+CellTagsIndex->{}
+*)
+(*CellTagsIndex
+CellTagsIndex->{}
+*)
+(*NotebookFileOutline
+Notebook[{
+Cell[CellGroupData[{
+Cell[580, 22, 168, 2, 92, "Title"],
+Cell[CellGroupData[{
+Cell[773, 28, 148, 2, 65, "Chapter"],
+Cell[CellGroupData[{
+Cell[946, 34, 90, 1, 63, "Subchapter"],
+Cell[CellGroupData[{
+Cell[1061, 39, 751, 22, 158, "Input"],
+Cell[1815, 63, 90, 1, 32, "Output"]
+}, Open  ]]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[1954, 70, 93, 1, 63, "Subchapter"],
+Cell[CellGroupData[{
+Cell[2072, 75, 991, 28, 186, "Input"],
+Cell[3066, 105, 258, 3, 66, "Output"]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[3361, 113, 247, 7, 50, "Input"],
+Cell[3611, 122, 303, 10, 53, "Output"]
+}, Open  ]]
+}, Open  ]]
+}, Open  ]]
+}, Open  ]]
+}
+]
+*)
+
