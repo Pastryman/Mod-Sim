@@ -5,6 +5,8 @@
 #include "mt19937.h"
 #include <iostream>
 #include <fstream>
+#include <algorithm>
+
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -32,7 +34,7 @@ const double delta  = 0.1;
 const double deltaV = 2.0;
 
 /* Reduced pressure \beta P */
-const double betaP = 3.0;
+const double betaP = 2.0;
 const char* init_filename = "fcc.dat";
 
 /* Simulation variables */
@@ -53,7 +55,11 @@ int change_volume(void){
     // Calculate new volume
     double V=box[0]*box[1]*box[2];
     double dV= dsfmt_genrand()*(2.*deltaV)-deltaV;
-    double V_new=V-dV;
+    double V_new=V+dV;
+
+    //std::cout<< "\ndV: "<<dV;
+    //std::cout<<"V_new: "<<V_new<<"\n";
+    //std::cout<<"V_old: "<<V<<"\n";
 
     // Ratio of change for every box dimension
     double ratio=pow(V_new/V,(1.0/3.0));
@@ -72,42 +78,54 @@ int change_volume(void){
     // j - particle selected which is compared with the others
     // i - to which particle the selected particle is compared
 
-    for(int j=1;j<n_particles;j++)
+    if(dV<0)
     {
-        for(int i = 0; i<j; i++)
+        for(int j=1;j<n_particles;j++)
         {
-            // We don't check if the particle overlaps with itself
-            if(i == j){ continue;}
-
-            // The displacement between the particles (in x and y)
-            double dx = abs(r_new[i][0]-r_new[j][0]);
-            double dy = abs(r_new[i][1]-r_new[j][1]);
-
-            // Apply nearest image convention
-            if (dx>2.*box_new[0]) {dx = box_new[0] - dx;}
-            if (dy>2.*box_new[1]) {dy = box_new[1] - dy;}
-
-            // We also want to do this for the z-coordinate, if NDIM == 3
-            double dz;
-            if (NDIM == 3)
+            for(int i = 0; i<j; i++)
             {
-                dz = abs(r_new[i][2] - r_new[j][2]);
-                if (dz > 2. * box[2]) { dz = box_new[2] - dz; }
+                // We don't check if the particle overlaps with itself
+                if(i == j){ continue;}
+
+                // The displacement between the particles (in x and y)
+                double dx = abs(r_new[i][0]-r_new[j][0]);
+                double dy = abs(r_new[i][1]-r_new[j][1]);
+
+                // Apply nearest image convention
+                if (dx>2.*box_new[0]) {dx = box_new[0] - dx;}
+                if (dy>2.*box_new[1]) {dy = box_new[1] - dy;}
+
+                // We also want to do this for the z-coordinate, if NDIM == 3
+                double dz;
+                if (NDIM == 3)
+                {
+                    dz = abs(r_new[i][2] - r_new[j][2]);
+                    if (dz > 2. * box[2]) { dz = box_new[2] - dz; }
+                }
+
+                // We quadraticly sum the coordinate displacements to get the actual displacement
+                double dr = pow(dx,2.) + pow(dy,2.);
+                if (NDIM == 3) {dr += pow(dz,2.);}
+
+                // If the displacement is smaller than one, we reject the move (by returning)
+                if (dr < 1)
+                {
+                    //std::cout << "\nRejected! Overlap with: " << i+1 << "\tdr = " << dr;
+                    //std::cout<< "\nVolume change (rejected,overlap):";
+                    return 0;
+                }
+
             }
-
-            // We quadraticly sum the coordinate displacements to get the actual displacement
-            double dr = pow(dx,2.) + pow(dy,2.);
-            if (NDIM == 3) {dr += pow(dz,2.);}
-
-            // If the displacement is smaller than one, we reject the move (by returning)
-            if (dr < 1)
-            {
-                //std::cout << "\nRejected! Overlap with: " << i+1 << "\tdr = " << dr;
-                std::cout<< "\nVolume change (rejected):" << dV;
-                return 0;
-            }
-
         }
+    }
+
+
+    double acc_value = exp(-betaP * dV)*pow((V_new/V),n_particles);
+    //std::cout<< "\nAcc value: " << acc_value;
+
+    if(!(dsfmt_genrand()<acc_value))
+    {
+        return 0;
     }
 
     // Change all the particle positions and volume
@@ -119,7 +137,8 @@ int change_volume(void){
         }
         box[i]=box_new[i];
     }
-    std::cout<< "\nVolume change (accepted):" << dV;
+
+    //std::cout<< "\nVolume change (accepted): " << dV << "\t" << "Acc value: " << acc_value;
     return 1;
 
 }
@@ -320,10 +339,11 @@ int main(int argc, char* argv[]){
                    step, box[0] * box[1] * box[2],
                    (double)move_accepted / (n_particles * output_steps),
                    (double)vol_accepted /  output_steps);
+            std::cout << "Vol accepted: " << vol_accepted<< "\n";
             move_accepted = 0;
             vol_accepted = 0;
             write_data(step);
-            std::cout << "Vol accepted: " << vol_accepted<< "\n";
+
         }
     }
 
