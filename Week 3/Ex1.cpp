@@ -45,7 +45,83 @@ double box[NDIM];
 
 /* Functions */
 int change_volume(void){
-    /*--------- Your code goes here -----------*/
+
+    // Initialize new box parameters, and new particle positions
+    double box_new[NDIM];
+    float r_new[N][NDIM];
+
+    // Calculate new volume
+    double V=box[0]*box[1]*box[2];
+    double dV= dsfmt_genrand()*(2.*deltaV)-deltaV;
+    double V_new=V-dV;
+
+    // Ratio of change for every box dimension
+    double ratio=pow(V_new/V,(1.0/3.0));
+
+    // Calculate new particle positions and box dimension after volume change
+    for(int i=0;i<NDIM;i++)
+    {
+        for(int n=0; n<n_particles;n++)
+        {
+            r_new[n][i] = float(r[n][i]*ratio);
+        }
+        box_new[i]=box[i]*ratio;
+    }
+
+    // Compare every new particle in the new box with all the other new particles in the new box
+    // j - particle selected which is compared with the others
+    // i - to which particle the selected particle is compared
+
+    for(int j=1;j<n_particles;j++)
+    {
+        for(int i = 0; i<j; i++)
+        {
+            // We don't check if the particle overlaps with itself
+            if(i == j){ continue;}
+
+            // The displacement between the particles (in x and y)
+            double dx = abs(r_new[i][0]-r_new[j][0]);
+            double dy = abs(r_new[i][1]-r_new[j][1]);
+
+            // Apply nearest image convention
+            if (dx>2.*box_new[0]) {dx = box_new[0] - dx;}
+            if (dy>2.*box_new[1]) {dy = box_new[1] - dy;}
+
+            // We also want to do this for the z-coordinate, if NDIM == 3
+            double dz;
+            if (NDIM == 3)
+            {
+                dz = abs(r_new[i][2] - r_new[j][2]);
+                if (dz > 2. * box[2]) { dz = box_new[2] - dz; }
+            }
+
+            // We quadraticly sum the coordinate displacements to get the actual displacement
+            double dr = pow(dx,2.) + pow(dy,2.);
+            if (NDIM == 3) {dr += pow(dz,2.);}
+
+            // If the displacement is smaller than one, we reject the move (by returning)
+            if (dr < 1)
+            {
+                //std::cout << "\nRejected! Overlap with: " << i+1 << "\tdr = " << dr;
+                std::cout<< "\nVolume change (rejected):" << dV;
+                return 0;
+            }
+
+        }
+    }
+
+    // Change all the particle positions and volume
+    for(int i=0;i<NDIM;i++)
+    {
+        for(int n=0; n<n_particles;n++)
+        {
+            r[n][i]=r_new[n][i];
+        }
+        box[i]=box_new[i];
+    }
+    std::cout<< "\nVolume change (accepted):" << dV;
+    return 1;
+
 }
 
 
@@ -143,14 +219,14 @@ int move_particle(void)
 
         // Apply nearest image convention
         if (dx>2.*box[0]) {dx = box[0] - dx;}
-        if (dy>2.*box[1]) {dy = box[1] - dx;}
+        if (dy>2.*box[1]) {dy = box[1] - dy;}
 
         // We also want to do this for the z-coordinate, if NDIM == 3
         double dz;
         if (NDIM == 3)
         {
             dz = abs(r[i][2] - positionAttempt[2]);
-            if (dz > 2. * box[2]) { dz = box[2] - dx; }
+            if (dz > 2. * box[2]) { dz = box[2] - dz; }
         }
 
         // We quadraticly sum the coordinate displacements to get the actual displacement
