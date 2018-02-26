@@ -24,7 +24,7 @@ const bool debug = 0;
 
 
 /* Initialization variables */
-const int mc_steps = 100000;
+const int mc_steps = 10001;
 const int output_steps = 100;
 const double packing_fraction = 0.6;
 const double diameter = 1.0;
@@ -34,7 +34,7 @@ const double delta  = 0.1;
 const double deltaV = 2.0;
 
 /* Reduced pressure \beta P */
-const double betaP = 2.0;
+double betaP = 50;
 const char* init_filename = "fcc.dat";
 
 /* Simulation variables */
@@ -46,7 +46,7 @@ double box[NDIM];
 
 
 /* Functions */
-int change_volume(void){
+double change_volume(void){
 
     // Initialize new box parameters, and new particle positions
     double box_new[NDIM];
@@ -112,7 +112,7 @@ int change_volume(void){
                 {
                     //std::cout << "\nRejected! Overlap with: " << i+1 << "\tdr = " << dr;
                     //std::cout<< "\nVolume change (rejected,overlap):";
-                    return 0;
+                    return V;
                 }
 
             }
@@ -125,7 +125,7 @@ int change_volume(void){
 
     if(!(dsfmt_genrand()<acc_value))
     {
-        return 0;
+        return V;
     }
 
     // Change all the particle positions and volume
@@ -139,7 +139,7 @@ int change_volume(void){
     }
 
     //std::cout<< "\nVolume change (accepted): " << dV << "\t" << "Acc value: " << acc_value;
-    return 1;
+    return V_new;
 
 }
 
@@ -323,9 +323,63 @@ int main(int argc, char* argv[]){
 
     dsfmt_seed(time(NULL));
 
-    printf("#Step \t Volume \t Move-acceptance\t Volume-acceptance \n");
+    char buffer[128];
+    sprintf(buffer, "volume.dat");
+    FILE* fp = fopen(buffer, "w");
 
-    int move_accepted = 0;
+    printf("\nIteration \t Pressure");
+    fprintf(fp, "Iteration \t Pressure");
+
+    int n_measure=0;
+    while(n_measure < mc_steps)
+    {
+        std::cout<< "\t" << "V(" << n_measure << ")";
+        fprintf(fp, "\t V(%i)", n_measure);
+        n_measure=n_measure+output_steps;
+    }
+
+
+    while(betaP>45)
+    {
+
+        for(int i=0; i<10;i++)
+        {
+            printf("\n %i", (i+1));
+            printf("\t %4.2f", float(betaP));
+
+            fprintf(fp,"\n %i", (i+1));
+            fprintf(fp,"\t %4.2f", float(betaP));
+
+            int move_accepted = 0;
+            double vol_system = 0;
+            int step, n;
+            for(step = 0; step < mc_steps; ++step)
+            {
+                for(n = 0; n < n_particles; ++n)
+                {
+                    move_accepted += move_particle();
+                }
+                vol_system=change_volume();
+                //printf("\n %i",step);
+                //printf("\n %f", vol_system);
+                if(step % output_steps == 0)
+                {
+                    std::cout << std::flush;
+                    std::cout<< "\t" << float(vol_system);
+                    fprintf(fp,"\t %.3f", float(vol_system));
+                }
+            }
+
+        }
+        betaP=betaP-5;
+    }
+    fclose(fp);
+
+
+
+
+
+    /*int move_accepted = 0;
     int vol_accepted = 0;
     int step, n;
     for(step = 0; step < mc_steps; ++step){
@@ -345,7 +399,7 @@ int main(int argc, char* argv[]){
             write_data(step);
 
         }
-    }
+    }*/
 
     return 0;
 }
