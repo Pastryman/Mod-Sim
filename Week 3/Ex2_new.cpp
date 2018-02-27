@@ -31,13 +31,16 @@ const double diameter = 1.0;
 double delta  = 0.05;
 
 const int step_equi=100000;
+const int maxMeasure = 500;
 
 /* Volume change -deltaV, delta V */
 double deltaV = 0.05;
 
 /* Reduced pressure \beta P */
-const double betaP = 50.0;
+const double betaP = 35.0;
 const char* init_filename = "fcc(1).dat";
+
+
 
 /* Simulation variables */
 int n_particles = 0;
@@ -309,6 +312,7 @@ void set_packing_fraction(void){
 }
 
 int main(int argc, char* argv[]){
+    std::cout << "\nBetaP = " << betaP << "\n";
 
     radius = 0.5 * diameter;
 
@@ -340,6 +344,9 @@ int main(int argc, char* argv[]){
     int move_accepted = 0;
     int vol_accepted = 0;
     int step, n;
+    double volume_old = 0;
+    bool measure = 0;
+    int measurements = 0;
     for(step = 0; step < mc_steps; ++step){
         for(n = 0; n < n_particles; ++n){
             move_accepted += move_particle();
@@ -348,20 +355,30 @@ int main(int argc, char* argv[]){
 
         double moveRatio = double(move_accepted) / (double(n_particles) * double(output_steps));
         double volumeRatio = double(vol_accepted) /  double(output_steps);
-
         if(step % output_steps == 0){
             std::cout << std::flush;
             printf("\n%d \t %lf \t %lf \t %lf",
                    step, box[0] * box[1] * box[2],
                    moveRatio,
                    volumeRatio);
-            if(step>=step_equi)
+            if(step % 10000 == 0 && !measure)
             {
-                //output_steps=10;
+                double volume_current = box[0]*box[1]*box[2];
+                if(volume_current < volume_old)
+                {
+                    measure = 1;
+                    std::cout << "\nMetingen zijn begonnen!\n";
+                }
+                volume_old = volume_current;
+            }
+            if(measure)
+            {
                 fprintf(fp,"\n%d \t %lf \t %lf \t %lf",
                         step, box[0] * box[1] * box[2],
                         moveRatio,
                         volumeRatio);
+                measurements++;
+                if (measurements>maxMeasure){fclose(fp);return 1;}
             }
             if(moveRatio < 0.35) {delta *= 0.8; std::cout << "\ndelta changed to: " << delta;}
             if(moveRatio > 0.65) {delta *= 1.2; std::cout << "\ndelta changed to: " << delta;}
