@@ -24,19 +24,19 @@ const bool debug = 0;
 
 
 /* Initialization variables */
-const int mc_steps = 400;
+const int mc_steps = 200000;
 int output_steps = 100;
-const double packing_fraction = 0.7; //0.7
+const double packing_fraction = 0.74; //0.7
 const double diameter = 1.0;
-const double delta  = 0.1;
+double delta  = 0.05;
 
-const int step_equi=200;
+const int step_equi=100000;
 
 /* Volume change -deltaV, delta V */
-const double deltaV = 0.025;
+double deltaV = 0.05;
 
 /* Reduced pressure \beta P */
-const double betaP = 50.0;
+const double betaP = 30.0;
 const char* init_filename = "fcc.dat";
 
 /* Simulation variables */
@@ -341,21 +341,27 @@ int main(int argc, char* argv[]){
         }
         vol_accepted += change_volume();
 
+        double moveRatio = double(move_accepted) / (double(n_particles) * double(output_steps));
+        double volumeRatio = double(vol_accepted) /  double(output_steps);
+
         if(step % output_steps == 0){
             std::cout << std::flush;
             printf("\n%d \t %lf \t %lf \t %lf",
                    step, box[0] * box[1] * box[2],
-                   (double)move_accepted / (n_particles * output_steps),
-                   (double)vol_accepted /  output_steps);
+                   moveRatio,
+                   volumeRatio);
             if(step>=step_equi)
             {
-                output_steps=10;
+                //output_steps=10;
                 fprintf(fp,"\n%d \t %lf \t %lf \t %lf",
                         step, box[0] * box[1] * box[2],
-                        (double)move_accepted / (n_particles * output_steps),
-                        (double)vol_accepted /  output_steps);
+                        moveRatio,
+                        volumeRatio);
             }
-
+            if(moveRatio < 0.35) {delta *= 0.2; std::cout << "\ndelta changed to: " << delta;}
+            if(moveRatio > 0.65) {delta *= 1.2; std::cout << "\ndelta changed to: " << delta;}
+            if(volumeRatio < 0.35) {deltaV *= 0.2; std::cout << "\ndeltaV changed to: " << deltaV;}
+            if(volumeRatio > 0.65) {deltaV *= 1.2; std::cout << "\ndeltaV changed to: " << deltaV;}
             //std::cout << "Vol accepted: " << vol_accepted<< "\n";
             move_accepted = 0;
             vol_accepted = 0;
