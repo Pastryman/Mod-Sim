@@ -37,7 +37,7 @@ const int maxMeasure = 500;
 double deltaV = 0.05;
 
 /* Reduced pressure \beta P */
-const double betaP = 15.0;
+const double betaP = 100.0;
 const char* init_filename = "fcc(1).dat";
 
 
@@ -388,7 +388,6 @@ int main(int argc, char* argv[]){
             move_accepted = 0;
             vol_accepted = 0;
             //write_data(step);
-
         }
     }
     fclose(fp);

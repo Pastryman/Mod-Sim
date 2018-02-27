@@ -14,6 +14,8 @@
 #define NDIM 3
 #define N 1000
 
+bool distanceMode = 1;
+
 /* Initialization variables */
 const int mc_steps = 10000;
 const int output_steps = 100;
@@ -168,6 +170,28 @@ void set_packing_fraction(void){
     for(d = 0; d < NDIM; ++d) box[d] *= scale_factor;
 }
 
+void get_distances(void)
+{
+    char buffer[128];
+    sprintf(buffer, "Exercise2_rList.dat");
+    FILE* fp = fopen(buffer, "w");
+
+    fprintf(fp,"r\n");
+
+    float dist = 0;
+
+    for (int i = 0; i<n_particles; i++)
+    {
+        for (int j = i+1 ; j < n_particles; j++)
+        {
+            dist = 0;
+            for (int n = 0; n <NDIM; n++) {dist+=pow(r[i][n]-r[j][n],2.);}
+            fprintf(fp, "%lf\n",sqrt(dist));
+        }
+    }
+    fclose(fp);
+}
+
 int main(int argc, char* argv[]){
 
     assert(packing_fraction > 0.0 && packing_fraction < 1.0);
@@ -189,6 +213,8 @@ int main(int argc, char* argv[]){
         printf("Error: Number of particles, n_particles = 0.\n");
         return 0;
     }
+
+    if (distanceMode) {get_distances(); return 1;}
 
     set_packing_fraction();
 
