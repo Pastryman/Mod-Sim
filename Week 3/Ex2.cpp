@@ -323,13 +323,17 @@ int main(int argc, char* argv[]){
 
     dsfmt_seed(time(NULL));
 
+    // Make data file to store the data
+    // Copied from the write_data method
     char buffer[128];
     sprintf(buffer, "volume.dat");
     FILE* fp = fopen(buffer, "w");
 
+    // Print/Write the names of all the columns, first two columns are "iteration" and "pressure"
     printf("\nIteration \t Pressure");
     fprintf(fp, "Iteration \t Pressure");
 
+    // Print/Write the names of all the columns, volumes after all the Monte Carlo steps
     int n_measure=0;
     while(n_measure < mc_steps)
     {
@@ -338,15 +342,17 @@ int main(int argc, char* argv[]){
         n_measure=n_measure+output_steps;
     }
 
-
-    while(betaP>45)
+    // Measure from the highest betaP stored in the parameters above till 0
+    while(betaP>0)
     {
 
         for(int i=0; i<10;i++)
         {
+            // Print "iteration" and "pressure"
             printf("\n %i", (i+1));
             printf("\t %4.2f", float(betaP));
 
+            // Write "iteration" and "pressure"
             fprintf(fp,"\n %i", (i+1));
             fprintf(fp,"\t %4.2f", float(betaP));
 
@@ -360,8 +366,8 @@ int main(int argc, char* argv[]){
                     move_accepted += move_particle();
                 }
                 vol_system=change_volume();
-                //printf("\n %i",step);
-                //printf("\n %f", vol_system);
+
+                // Print/Write volume of the system for that output step
                 if(step % output_steps == 0)
                 {
                     std::cout << std::flush;
@@ -371,35 +377,10 @@ int main(int argc, char* argv[]){
             }
 
         }
+        // Decrease the pressure by 5
         betaP=betaP-5;
     }
     fclose(fp);
-
-
-
-
-
-    /*int move_accepted = 0;
-    int vol_accepted = 0;
-    int step, n;
-    for(step = 0; step < mc_steps; ++step){
-        for(n = 0; n < n_particles; ++n){
-            move_accepted += move_particle();
-        }
-        vol_accepted += change_volume();
-
-        if(step % output_steps == 0){
-            printf("%d \t %lf \t %lf \t %lf \n",
-                   step, box[0] * box[1] * box[2],
-                   (double)move_accepted / (n_particles * output_steps),
-                   (double)vol_accepted /  output_steps);
-            std::cout << "Vol accepted: " << vol_accepted<< "\n";
-            move_accepted = 0;
-            vol_accepted = 0;
-            write_data(step);
-
-        }
-    }*/
 
     return 0;
 }
