@@ -28,17 +28,16 @@ const int mc_steps = 200000;
 int output_steps = 100;
 const double packing_fraction = 0.74; //0.7
 const double diameter = 1.0;
-double delta  = 0.05;
-
-const int step_equi=100000;
 const int maxMeasure = 500;
+bool liquid = 1;
 
 /* Volume change -deltaV, delta V */
+double delta  = 0.05;
 double deltaV = 0.05;
 
 /* Reduced pressure \beta P */
-const double betaP = 100.0;
-const char* init_filename = "fcc(1).dat";
+const double betaP = 50.0;
+const char* init_filename = "liquid_step0012000.dat";
 
 
 
@@ -330,12 +329,12 @@ int main(int argc, char* argv[]){
         return 0;
     }
 
-    set_packing_fraction();
+    //set_packing_fraction();
 
     dsfmt_seed(time(NULL));
 
     char buffer[128];
-    sprintf(buffer, "Exercise2_P%.0f.dat",betaP);
+    sprintf(buffer, "Exercise2_P%.0fliquid12000.dat",betaP);
     FILE* fp = fopen(buffer, "w");
 
     printf("\n#Step \t Volume \t Move-acceptance\t Volume-acceptance");
@@ -344,8 +343,8 @@ int main(int argc, char* argv[]){
     int move_accepted = 0;
     int vol_accepted = 0;
     int step, n;
-    double volume_old = 0;
-    bool measure = 0;
+    double volume_old = liquid?10000:0;
+    bool measure = 0;4
     int measurements = 0;
     for(step = 0; step < mc_steps; ++step){
         for(n = 0; n < n_particles; ++n){
@@ -364,7 +363,7 @@ int main(int argc, char* argv[]){
             if(step % 10000 == 0 && !measure)
             {
                 double volume_current = box[0]*box[1]*box[2];
-                if(volume_current < volume_old)
+                if((volume_current < volume_old && !liquid)||(volume_current > volume_old && liquid))
                 {
                     measure = 1;
                     std::cout << "\nMetingen zijn begonnen!\n";
