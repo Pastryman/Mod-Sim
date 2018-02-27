@@ -37,7 +37,7 @@ const int maxMeasure = 500;
 double deltaV = 0.05;
 
 /* Reduced pressure \beta P */
-const double betaP = 35.0;
+const double betaP = 15.0;
 const char* init_filename = "fcc(1).dat";
 
 
@@ -335,7 +335,7 @@ int main(int argc, char* argv[]){
     dsfmt_seed(time(NULL));
 
     char buffer[128];
-    sprintf(buffer, "Exercise2_P%.0f_pf%.2f_dV%.3f_dstep%.2f.dat",betaP,packing_fraction,deltaV,delta);
+    sprintf(buffer, "Exercise2_P%.0f.dat",betaP);
     FILE* fp = fopen(buffer, "w");
 
     printf("\n#Step \t Volume \t Move-acceptance\t Volume-acceptance");
