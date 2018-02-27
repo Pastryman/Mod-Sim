@@ -24,19 +24,19 @@ const bool debug = 0;
 
 
 /* Initialization variables */
-const int mc_steps = 10001;
-const int output_steps = 100;
-const double packing_fraction = 0.6;
+const int mc_steps = 400;
+int output_steps = 100;
+const double packing_fraction = 0.7; //0.7
 const double diameter = 1.0;
 const double delta  = 0.1;
 
-const int start_measure=1000;
+const int step_equi=200;
 
 /* Volume change -deltaV, delta V */
-const double deltaV = 2.0;
+const double deltaV = 0.025;
 
 /* Reduced pressure \beta P */
-double betaP = 50;
+const double betaP = 50.0;
 const char* init_filename = "fcc.dat";
 
 /* Simulation variables */
@@ -48,7 +48,7 @@ double box[NDIM];
 
 
 /* Functions */
-double change_volume(void){
+int change_volume(void){
 
     // Initialize new box parameters, and new particle positions
     double box_new[NDIM];
@@ -114,7 +114,7 @@ double change_volume(void){
                 {
                     //std::cout << "\nRejected! Overlap with: " << i+1 << "\tdr = " << dr;
                     //std::cout<< "\nVolume change (rejected,overlap):";
-                    return V;
+                    return 0;
                 }
 
             }
@@ -127,7 +127,7 @@ double change_volume(void){
 
     if(!(dsfmt_genrand()<acc_value))
     {
-        return V;
+        return 0;
     }
 
     // Change all the particle positions and volume
@@ -141,7 +141,7 @@ double change_volume(void){
     }
 
     //std::cout<< "\nVolume change (accepted): " << dV << "\t" << "Acc value: " << acc_value;
-    return V_new;
+    return 1;
 
 }
 
@@ -325,36 +325,41 @@ int main(int argc, char* argv[]){
 
     dsfmt_seed(time(NULL));
 
-    // Make data file to store the data
-    // Copied from the write_data method
     char buffer[128];
-    sprintf(buffer, "volume_P%.0f_pf%.2f_dV%.3f.dat",betaP,packing_fraction,deltaV);
+    sprintf(buffer, "Exercise2_P%.0f_pf%.2f_dV%.3f_dstep%.2f.dat",betaP,packing_fraction,deltaV,delta);
     FILE* fp = fopen(buffer, "w");
 
-    fprintf(fp,"Step \t Pressure");
-    printf("\nStep \t Pressure");
+    printf("\n#Step \t Volume \t Move-acceptance\t Volume-acceptance");
+    fprintf(fp,"#Step \t Volume \t Move-acceptance\t Volume-acceptance");
 
     int move_accepted = 0;
-    double vol_system = 0;
+    int vol_accepted = 0;
     int step, n;
-    for(step = 0; step < mc_steps; ++step)
-    {
-        for(n = 0; n < n_particles; ++n)
-        {
+    for(step = 0; step < mc_steps; ++step){
+        for(n = 0; n < n_particles; ++n){
             move_accepted += move_particle();
         }
-        vol_system=change_volume();
+        vol_accepted += change_volume();
 
-        // Print/Write volume of the system for that output step
-
-        if(step % output_steps == 0)
-        {
+        if(step % output_steps == 0){
             std::cout << std::flush;
-            std::cout<< "\n" << step << "\t" << float(vol_system);
-            if(step>start_measure)
+            printf("\n%d \t %lf \t %lf \t %lf",
+                   step, box[0] * box[1] * box[2],
+                   (double)move_accepted / (n_particles * output_steps),
+                   (double)vol_accepted /  output_steps);
+            if(step>=step_equi)
             {
-                fprintf(fp,"\n %d \t %.3f",step, float(vol_system));
+                output_steps=10;
+                fprintf(fp,"\n%d \t %lf \t %lf \t %lf",
+                        step, box[0] * box[1] * box[2],
+                        (double)move_accepted / (n_particles * output_steps),
+                        (double)vol_accepted /  output_steps);
             }
+
+            //std::cout << "Vol accepted: " << vol_accepted<< "\n";
+            move_accepted = 0;
+            vol_accepted = 0;
+            //write_data(step);
 
         }
     }

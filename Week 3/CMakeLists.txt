@@ -5,3 +5,4 @@ set(CMAKE_CXX_STANDARD 11)
 
 add_executable(Ex1 Ex1.cpp)
 add_executable(Ex2 Ex2.cpp)
+add_executable(Ex2_new Ex2_new.cpp)
