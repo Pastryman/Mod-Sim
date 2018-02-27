@@ -36,8 +36,8 @@ const int step_equi=100000;
 double deltaV = 0.05;
 
 /* Reduced pressure \beta P */
-const double betaP = 30.0;
-const char* init_filename = "fcc.dat";
+const double betaP = 50.0;
+const char* init_filename = "fcc(1).dat";
 
 /* Simulation variables */
 int n_particles = 0;
@@ -71,7 +71,7 @@ int change_volume(void){
     {
         for(int n=0; n<n_particles;n++)
         {
-            r_new[n][i] = float(r[n][i]*ratio);
+            r_new[n][i] = float(r[n][i]*float(ratio));
         }
         box_new[i]=box[i]*ratio;
     }
@@ -94,15 +94,15 @@ int change_volume(void){
                 double dy = abs(r_new[i][1]-r_new[j][1]);
 
                 // Apply nearest image convention
-                if (dx>2.*box_new[0]) {dx = box_new[0] - dx;}
-                if (dy>2.*box_new[1]) {dy = box_new[1] - dy;}
+                if (dx>.5*box_new[0]) {dx = box_new[0] - dx;}
+                if (dy>.5*box_new[1]) {dy = box_new[1] - dy;}
 
                 // We also want to do this for the z-coordinate, if NDIM == 3
                 double dz;
                 if (NDIM == 3)
                 {
                     dz = abs(r_new[i][2] - r_new[j][2]);
-                    if (dz > 2. * box[2]) { dz = box_new[2] - dz; }
+                    if (dz > .5 * box_new[2]) { dz = box_new[2] - dz; }
                 }
 
                 // We quadraticly sum the coordinate displacements to get the actual displacement
@@ -123,7 +123,10 @@ int change_volume(void){
 
 
     double acc_value = exp(-betaP * dV)*pow((V_new/V),n_particles);
-    //std::cout<< "\nAcc value: " << acc_value;
+//    std::cout<< "\nV_new: " << V_new;
+//    std::cout<< "\nV: " << V;
+//    std::cout<< "\ndV: " << dV;
+//    std::cout<< "\nAcc value: " << acc_value << "\n";
 
     if(!(dsfmt_genrand()<acc_value))
     {
@@ -213,7 +216,7 @@ int move_particle(void)
 
     // Generate a random new position of the particle, the new position is (temporarily) stored in another variable
     // This is done in each dimension separately
-    float positionAttempt[3];
+    double positionAttempt[3];
     for(int i=0;i<NDIM;i++)
     {
         // Generate a random displacement
@@ -239,15 +242,15 @@ int move_particle(void)
         double dy = abs(r[i][1]-positionAttempt[1]);
 
         // Apply nearest image convention
-        if (dx>2.*box[0]) {dx = box[0] - dx;}
-        if (dy>2.*box[1]) {dy = box[1] - dy;}
+        if (dx>.5*box[0]) {dx = box[0] - dx;}
+        if (dy>.5*box[1]) {dy = box[1] - dy;}
 
         // We also want to do this for the z-coordinate, if NDIM == 3
         double dz;
         if (NDIM == 3)
         {
             dz = abs(r[i][2] - positionAttempt[2]);
-            if (dz > 2. * box[2]) { dz = box[2] - dz; }
+            if (dz > .5 * box[2]) { dz = box[2] - dz; }
         }
 
         // We quadraticly sum the coordinate displacements to get the actual displacement
@@ -267,9 +270,9 @@ int move_particle(void)
 
     // If we get out of the for loop it means the particle does not overlap with any other particle!
     // Perform the displacement and return
-    r[particle][0]=positionAttempt[0];
-    r[particle][1]=positionAttempt[1];
-    r[particle][2]=positionAttempt[2];
+    r[particle][0]=float(positionAttempt[0]);
+    r[particle][1]=float(positionAttempt[1]);
+    r[particle][2]=float(positionAttempt[2]);
     return 1;
 }
 
@@ -293,6 +296,7 @@ void set_packing_fraction(void){
     double volume = 1.0;
     int d, n;
     for(d = 0; d < NDIM; ++d) volume *= box[d];
+    std::cout<<"\nold system volume = " <<volume;
 
     double target_volume = (n_particles * particle_volume) / packing_fraction;
     double scale_factor = pow(target_volume / volume, 1.0 / NDIM);
@@ -301,6 +305,7 @@ void set_packing_fraction(void){
         for(d = 0; d < NDIM; ++d) r[n][d] *= scale_factor;
     }
     for(d = 0; d < NDIM; ++d) box[d] *= scale_factor;
+
 }
 
 int main(int argc, char* argv[]){
@@ -358,9 +363,9 @@ int main(int argc, char* argv[]){
                         moveRatio,
                         volumeRatio);
             }
-            if(moveRatio < 0.35) {delta *= 0.2; std::cout << "\ndelta changed to: " << delta;}
+            if(moveRatio < 0.35) {delta *= 0.8; std::cout << "\ndelta changed to: " << delta;}
             if(moveRatio > 0.65) {delta *= 1.2; std::cout << "\ndelta changed to: " << delta;}
-            if(volumeRatio < 0.35) {deltaV *= 0.2; std::cout << "\ndeltaV changed to: " << deltaV;}
+            if(volumeRatio < 0.35) {deltaV *= 0.8; std::cout << "\ndeltaV changed to: " << deltaV;}
             if(volumeRatio > 0.65) {deltaV *= 1.2; std::cout << "\ndeltaV changed to: " << deltaV;}
             //std::cout << "Vol accepted: " << vol_accepted<< "\n";
             move_accepted = 0;
