@@ -25,16 +25,16 @@ const bool debug = 0;
 
 /* Initialization variables */
 const int mc_steps = 30000;
-const int output_steps = 2000;
+const int output_steps = 100;
 const double packing_fraction = 0.7; //0.7
 const double diameter = 1.0;
 const double delta  = 0.1;
 
 /* Volume change -deltaV, delta V */
-const double deltaV = 0.15;
+const double deltaV = 0.025;
 
 /* Reduced pressure \beta P */
-const double betaP = 15.0;
+const double betaP = 50.0;
 const char* init_filename = "fcc.dat";
 
 /* Simulation variables */
@@ -335,7 +335,7 @@ int main(int argc, char* argv[]){
         vol_accepted += change_volume();
 
         if(step % output_steps == 0){
-            printf("%d \t %lf \t %lf \t %lf \n",
+            printf("%d \t \t %lf \t %lf \t %lf \n",
                    step, box[0] * box[1] * box[2],
                    (double)move_accepted / (n_particles * output_steps),
                    (double)vol_accepted /  output_steps);

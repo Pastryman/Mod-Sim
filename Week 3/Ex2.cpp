@@ -30,6 +30,8 @@ const double packing_fraction = 0.6;
 const double diameter = 1.0;
 const double delta  = 0.1;
 
+const int start_measure=1000;
+
 /* Volume change -deltaV, delta V */
 const double deltaV = 2.0;
 
@@ -326,15 +328,12 @@ int main(int argc, char* argv[]){
     // Make data file to store the data
     // Copied from the write_data method
     char buffer[128];
-    sprintf(buffer, "volume.dat");
+    sprintf(buffer, "volume_P%.0f_pf%.2f_dV%.3f_.dat",betaP,packing_fraction,deltaV);
     FILE* fp = fopen(buffer, "w");
 
-    // Print/Write the names of all the columns, first two columns are "iteration" and "pressure"
-    printf("\nIteration \t Pressure");
-    fprintf(fp, "Iteration \t Pressure");
 
     // Print/Write the names of all the columns, volumes after all the Monte Carlo steps
-    int n_measure=0;
+    int n_measure=start_measure;
     while(n_measure < mc_steps)
     {
         std::cout<< "\t" << "V(" << n_measure << ")";
@@ -343,42 +342,33 @@ int main(int argc, char* argv[]){
     }
 
     // Measure from the highest betaP stored in the parameters above till 0
-    while(betaP>0)
+    // Print "iteration" and "pressure"
+
+    // Write "iteration" and "pressure"
+
+    int move_accepted = 0;
+    double vol_system = 0;
+    int step, n;
+    for(step = 0; step < mc_steps; ++step)
     {
-
-        for(int i=0; i<10;i++)
+        for(n = 0; n < n_particles; ++n)
         {
-            // Print "iteration" and "pressure"
-            printf("\n %i", (i+1));
-            printf("\t %4.2f", float(betaP));
+            move_accepted += move_particle();
+        }
+        vol_system=change_volume();
 
-            // Write "iteration" and "pressure"
-            fprintf(fp,"\n %i", (i+1));
-            fprintf(fp,"\t %4.2f", float(betaP));
+        // Print/Write volume of the system for that output step
 
-            int move_accepted = 0;
-            double vol_system = 0;
-            int step, n;
-            for(step = 0; step < mc_steps; ++step)
+        if(step % output_steps == 0)
+        {
+            std::cout << std::flush;
+            std::cout<< "\t" << float(vol_system);
+            if(step>start_measure)
             {
-                for(n = 0; n < n_particles; ++n)
-                {
-                    move_accepted += move_particle();
-                }
-                vol_system=change_volume();
-
-                // Print/Write volume of the system for that output step
-                if(step % output_steps == 0)
-                {
-                    std::cout << std::flush;
-                    std::cout<< "\t" << float(vol_system);
-                    fprintf(fp,"\t %.3f", float(vol_system));
-                }
+                fprintf(fp,"\t %.3f", float(vol_system));
             }
 
         }
-        // Decrease the pressure by 5
-        betaP=betaP-5;
     }
     fclose(fp);
 
