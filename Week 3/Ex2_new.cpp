@@ -29,15 +29,15 @@ int output_steps = 100;
 const double packing_fraction = 0.74; //0.7
 const double diameter = 1.0;
 const int maxMeasure = 500;
-bool liquid = 1;
 
 /* Volume change -deltaV, delta V */
 double delta  = 0.05;
 double deltaV = 0.05;
 
 /* Reduced pressure \beta P */
-const double betaP = 50.0;
-const char* init_filename = "liquid_step0012000.dat";
+const double betaP = 15;
+const char* init_filename = "liquid.dat";
+bool liquid = 1;
 
 
 
@@ -329,12 +329,13 @@ int main(int argc, char* argv[]){
         return 0;
     }
 
-    //set_packing_fraction();
+    if(!liquid){set_packing_fraction();}
 
     dsfmt_seed(time(NULL));
 
     char buffer[128];
-    sprintf(buffer, "Exercise2_P%.0fliquid12000.dat",betaP);
+    if (liquid) {sprintf(buffer, "Exercise2_P%.0f_liquid.dat",betaP);}
+    else {sprintf(buffer, "Exercise2_P_fcc%.0f.dat",betaP);}
     FILE* fp = fopen(buffer, "w");
 
     printf("\n#Step \t Volume \t Move-acceptance\t Volume-acceptance");
@@ -344,7 +345,7 @@ int main(int argc, char* argv[]){
     int vol_accepted = 0;
     int step, n;
     double volume_old = liquid?10000:0;
-    bool measure = 0;4
+    bool measure = 0;
     int measurements = 0;
     for(step = 0; step < mc_steps; ++step){
         for(n = 0; n < n_particles; ++n){
