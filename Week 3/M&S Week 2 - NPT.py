@@ -69,7 +69,7 @@ for i in range(0,len(P)):
 # Data (LIQUID!)
 #
 
-P_liq=np.array([15,20,25,30,35,40,45,50])
+P_liq=np.array([5,10,15,20,25,30,35,40,45,50])
 waarden_liq=np.zeros((len(P_liq),8))
 dir = ''
 
@@ -102,7 +102,7 @@ plt.errorbar(waarden_liq[:,0], waarden_liq[:,2],yerr=waarden_liq[:,4],fmt='.r',l
 
 plt.grid()
 plt.xlabel("Dimensionless pressure: $ \\beta P \sigma^{3} $")
-plt.ylabel("Volume ($\sigma^{3}$)")
+plt.ylabel("<Volume> ($\sigma^{3}$)")
 plt.ylim([370,700])
 
 plt.legend()
@@ -156,4 +156,24 @@ plt.legend()
 
 plt.savefig('Fig_Exercise_3.pdf')
 
+plt.show()
+
+#------------------
+# Plot 3 - Volume vs Packingfraction
+def bP(eta):
+    f=(1+eta+eta**2-eta**3)/((1-eta)**3)
+    return f
+
+plt.errorbar(pf,P,xerr=pf_sigma,fmt='.b',label = 'Crystal')
+plt.errorbar(pf_liq,P_liq,xerr=pf_sigma_liq,fmt='.r',label = 'Liquid')
+
+eta_ex3=P_ex3=np.linspace(0.35,0.68,num=1000)
+
+plt.plot(eta_ex3,bP(eta_ex3),"g--",label = 'Carnahan & Starling EOS')
+
+plt.ylabel("Dimensionless pressure: $ \\beta P \sigma^{3} $")
+plt.xlabel("Packing fraction: $\eta$")
+plt.legend()
+
+plt.savefig('Fig_Exercise_3_Inverted.pdf')
 plt.show()
