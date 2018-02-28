@@ -35,7 +35,7 @@ double delta  = 0.05;
 double deltaV = 0.05;
 
 /* Reduced pressure \beta P */
-const double betaP = 15;
+const double betaP = 5;
 const char* init_filename = "liquid.dat";
 bool liquid = 1;
 
@@ -344,7 +344,7 @@ int main(int argc, char* argv[]){
     int move_accepted = 0;
     int vol_accepted = 0;
     int step, n;
-    double volume_old = liquid?10000:0;
+    double volume_old = liquid?100000:0;
     bool measure = 0;
     int measurements = 0;
     for(step = 0; step < mc_steps; ++step){
