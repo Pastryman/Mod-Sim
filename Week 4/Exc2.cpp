@@ -172,21 +172,24 @@ void set_packing_fraction(void){
 
 void get_distances(void)
 {
+    double Volume = box[1]*box[2]*box[3];
     char buffer[128];
-    sprintf(buffer, "Exercise2_rList.dat");
+    sprintf(buffer, "Exercise2_rList_%i.dat",int(Volume));
     FILE* fp = fopen(buffer, "w");
 
-    fprintf(fp,"r\n");
+    fprintf(fp,"##Volume:\t",Volume);
+    fprintf(fp,"#i\tj\tr\n");
 
     float dist = 0;
 
     for (int i = 0; i<n_particles; i++)
     {
-        for (int j = i+1 ; j < n_particles; j++)
+        for (int j = 0 ; j < n_particles; j++)
         {
+            if (j == i){ continue;}
             dist = 0;
             for (int n = 0; n <NDIM; n++) {dist+=pow(r[i][n]-r[j][n],2.);}
-            fprintf(fp, "%lf\n",sqrt(dist));
+            fprintf(fp, "%i\t%i\t%lf\n",i,j,sqrt(dist));
         }
     }
     fclose(fp);
@@ -214,9 +217,14 @@ int main(int argc, char* argv[]){
         return 0;
     }
 
-    if (distanceMode) {get_distances(); return 1;}
-
     set_packing_fraction();
+
+
+    if (distanceMode)
+    {
+        get_distances();
+        return 1;
+    }
 
     dsfmt_seed(time(NULL));
 
