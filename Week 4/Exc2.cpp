@@ -14,17 +14,17 @@
 #define NDIM 3
 #define N 1000
 
-bool debug = 1;
+bool debug = 0;
 
 /* Initialization variables */
-const int mc_steps = 2000;
+const int mc_steps = 500;
 const int output_steps = 100;
 const double packing_fraction = 0.2;
 const double diameter = 1.0;
 double delta = 0.3;
 const char* init_filename = "fcc.dat";
-const int configs = 2;
-const double dr = 0.1;
+const int configs = 10;
+const double dr = 0.3;
 
 /* Simulation variables */
 int n_particles = 0;
@@ -196,15 +196,18 @@ void get_distances(void)
             if (dy>.5*box[1]) {dy = box[1] - dy;}
             if (dz > .5 * box[2]) { dz = box[2] - dz; }
 
-            dist = pow(dx,2.) + pow(dy,2.) + pow(dz,2.);
-            bin = int(dist/dr);
+            dist = sqrt(pow(dx,2.) + pow(dy,2.) + pow(dz,2.));
 
+            bin = int(dist/dr);
             hist[bin] += 2;
+
         }
     }
 }
 
 int main(int argc, char* argv[]) {
+
+
     assert(packing_fraction > 0.0 && packing_fraction < 1.0);
     assert(diameter > 0.0);
     assert(delta > 0.0);
@@ -223,11 +226,16 @@ int main(int argc, char* argv[]) {
     }
     set_packing_fraction();
     double volume = box[0] * box[1] * box[2];
+    std::cout<< "Volume of system: "<< volume << "\n";
 
     double rmax = sqrt(3.) * pow(volume, 1. / 3.) / 2.;
+    std::cout<< "Maximum distance: "<< rmax << "\n";
+
+
     int nbins = int(rmax / dr) + 1;
 
     for (int c = 0; c < configs; c++) {
+        std::cout<< "Configuration run: " << c <<"\n";
         // Reset r
         for (int p = 0; p < n_particles; p++) {
             for (int n = 0; n < NDIM; n++) { r[p][n] = r_initial[p][n]; }
@@ -253,24 +261,25 @@ int main(int argc, char* argv[]) {
         get_distances();
     }
 
+
     // Initialize file
     char buffer[128];
     sprintf(buffer, "Exercise2_gList_%i.dat", int(volume));
     FILE *fp = fopen(buffer, "w");
     fprintf(fp, "##Volume:\t%lf\n", volume);
-    fprintf(fp, "#r\tgr\n");
+    fprintf(fp, "#bin\tr\tgr\n");
 
     // Scale bincounts
     double nID[nbins];
     double R = 0;
     double g;
+
     for (int i = 0; i < nbins; i++) {
         hist[i] /= float(configs);
         nID[i] = 4. * M_PI * (500. / volume) * (pow(R + dr, 3.) - pow(R, 3.)) / 3;
         g = hist[i] / (nID[i] * 500.);
 
-
-        fprintf(fp, "%lf \t %lf\n", R + 0.5 * dr, g);
+        fprintf(fp, "%i \t %lf \t %lf\n",i,R + 0.5 * dr, g);
 
         R += dr;
     }
