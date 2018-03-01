@@ -184,15 +184,30 @@ void get_distances(void)
     fprintf(fp,"##Volume:\t%lf\n",Volume);
     fprintf(fp,"#i\tj\tr\n");
 
-    float dist = 0;
+    double dist = 0;
 
     for (int i = 0; i < n_particles; i++)
     {
         for (int j = 0 ; j < n_particles; j++)
         {
             if (j == i){ continue;}
-            dist = 0;
-            for (int n = 0; n <NDIM; n++) {dist+=pow(r[i][n]-r[j][n],2.);}
+
+            // The displacement between the particles (in x and y)
+            double dx = abs(r[i][0]-r[j][0]);
+            double dy = abs(r[i][1]-r[j][1]);
+            // Apply nearest image convention
+            if (dx>.5*box[0]) {dx = box[0] - dx;}
+            if (dy>.5*box[1]) {dy = box[1] - dy;}
+            dist = pow(dx,2.) + pow(dy,2.);
+            // We also want to do this for the z-coordinate, if NDIM == 3
+            double dz;
+            if (NDIM == 3)
+            {
+                dz = abs(r[i][2] - r[j][2]);
+                if (dz > .5 * box[2]) { dz = box[2] - dz; }
+                dist += pow(dz,2.);
+            }
+
             fprintf(fp, "%i\t%i\t%lf\n",i,j,sqrt(dist));
         }
     }
