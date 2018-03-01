@@ -27,7 +27,7 @@ dia=1.0
 
 # File location
 dir = ''
-filename='Test.dat'
+filename='Exercise2_rList_1308.dat'
 
 # Get volume
 f = open(dir+filename, "r")
@@ -42,7 +42,29 @@ for line in block:
           
 data = np.genfromtxt(dir + filename , delimiter ='\t')
 
-plt.figure()
-plt.hist(data[:,2],3)
+rmax=np.sqrt(3)/2*volumes[0]**(1./3.)
 
-    
+plt.figure()
+
+Nbins=int(1+3.222*np.log((N_part-1)**2))
+Nbins=45
+
+# Plot histogram
+plt.hist(data[:,2],Nbins,range=(0,10))
+plt.show()
+
+# Data histogram
+rho = N_part/volumes[0]
+dr = rmax/Nbins
+
+counts, bin_edges = np.histogram(data[:,2],bins=np.arange(0,rmax+dr,dr))
+
+n_id=4*np.pi*N_part/volumes[0]*((bin_edges[:-1]+dr)**3-bin_edges[:-1]**3)/3
+
+g=(1/N_part)*(counts/n_id)
+
+gx = np.arange(0,rmax+dr,dr)[:-1]+0.5*dr
+
+plt.plot(gx,g)
+#plt.xlim(0,5)
+#plt.show()
