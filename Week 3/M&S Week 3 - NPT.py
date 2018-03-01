@@ -36,13 +36,18 @@ print(filename, ": V=",mean_V," ± ",sigma_V)
 # Data (CRYSTAL!)
 
 # Pressure values for CRYSTAL
-P=np.array([5,10,15,20,25,30,35,40,45,50])
+P=np.array([2.5,5,10,15,20,25,30,35,40,45,50])
 values=np.zeros((len(P),8))
 dir = ''
 
 # Obtaining data from files
 for i in range(0,len(P)):
-    filename='Exercise2_P{}.dat'.format(int(P[i]))
+    
+    if(i==0):
+        filename='Exercise2_P{}.dat'.format(P[i])
+    else:
+        filename='Exercise2_P{}.dat'.format(int(P[i]))
+
     data = np.genfromtxt(dir + filename , delimiter ='\t')
     
     N=len(data[:,0])
@@ -66,13 +71,17 @@ for i in range(0,len(P)):
 # Data (LIQUID!)
 
 # Pressure values for LIQUID
-P_liq=np.array([5,10,15,20,25,30,35,40,45,50])
+P_liq=np.array([2.5,5,10,15,20,25,30,35,40,45,50])
 values_liq=np.zeros((len(P_liq),8))
 dir = ''
 
 # Obtaining data from files
 for i in range(0,len(P_liq)):
-    filename='Exercise2_P{}_liquid.dat'.format(int(P_liq[i]))
+    if(i==0):
+        filename='Exercise2_P{}_liquid.dat'.format(P_liq[i])
+    else:
+        filename='Exercise2_P{}_liquid.dat'.format(int(P_liq[i]))
+    
     data = np.genfromtxt(dir + filename , delimiter ='\t')
     
     N=len(data[:,0])
@@ -103,7 +112,7 @@ plt.errorbar(values_liq[:,0], values_liq[:,2],yerr=values_liq[:,4],fmt='.r',labe
 plt.grid()
 plt.xlabel("Dimensionless pressure: $ \\beta P \sigma^{3} $")
 plt.ylabel("<Volume> ($\sigma^{3}$)")
-plt.ylim([370,700])
+plt.ylim([370,875])
 plt.legend()
 
 # Visualize
