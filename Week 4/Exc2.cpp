@@ -20,16 +20,18 @@ bool debug = 0;
 /* Initialization variables */
 const int mc_steps = 2000;
 const int output_steps = 100;
-const double packing_fraction = 0.5;
+const double packing_fraction = 0.2;
 const double diameter = 1.0;
-double delta = 0.00001;
+double delta = 0.3;
 const char* init_filename = "fcc.dat";
+//pc
+//packing 0.2 -> delta 0.3
 
 /* Simulation variables */
 int n_particles = 0;
 double radius;
 double particle_volume;
-double r[N][NDIM];
+float r[N][NDIM];
 double box[NDIM];
 
 
@@ -143,7 +145,7 @@ int move_particle(void){
 
 void write_data(int step){
     char buffer[128];
-    sprintf(buffer, "coords_step%07d.dat", step);
+    sprintf(buffer, "coords_step%07d_volume%i.dat", step,int(box[0]*box[1]*box[2]));
     FILE* fp = fopen(buffer, "w");
     int d, n;
     fprintf(fp, "%d\n", n_particles);
@@ -173,7 +175,8 @@ void set_packing_fraction(void){
 
 void get_distances(void)
 {
-    double Volume = box[1]*box[2]*box[3];
+    double Volume = box[0]*box[1]*box[2];
+    printf("Volume = %lf",Volume);
     char buffer[128];
     sprintf(buffer, "Exercise2_rList_%i.dat",int(Volume));
     FILE* fp = fopen(buffer, "w");
@@ -240,13 +243,15 @@ int main(int argc, char* argv[]){
             }
         }
         get_distances();
+        write_data(step);
         return 1;
     }
 
     int accepted = 0;
     int step, n;
     for(step = 0; step < mc_steps; ++step){
-        for(n = 0; n < n_particles; ++n){
+        for(n = 0; n < n_particles; ++n)
+        {
             accepted += move_particle();
         }
 
