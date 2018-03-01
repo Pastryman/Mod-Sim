@@ -36,7 +36,7 @@ double deltaV = 0.05;
 
 /* Reduced pressure \beta P */
 const double betaP = 5;
-const char* init_filename = "liquid.dat";
+const char* init_filename = "fcc.dat";
 bool liquid = 1;
 
 
