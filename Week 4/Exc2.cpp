@@ -14,8 +14,7 @@
 #define NDIM 3
 #define N 1000
 
-bool distanceMode = 1;
-bool debug = 0;
+bool debug = 1;
 
 /* Initialization variables */
 const int mc_steps = 2000;
@@ -24,16 +23,20 @@ const double packing_fraction = 0.2;
 const double diameter = 1.0;
 double delta = 0.3;
 const char* init_filename = "fcc.dat";
-//pc
-//packing 0.2 -> delta 0.3
+const int configs = 2;
+const double dr = 0.1;
 
 /* Simulation variables */
 int n_particles = 0;
 double radius;
 double particle_volume;
+float r_initial[N][NDIM];
 float r[N][NDIM];
+//double box_initial[NDIM];
 double box[NDIM];
 
+// Make the Histogram array
+float hist[N];
 
 /* Functions */
 void read_data(void){
@@ -65,12 +68,12 @@ void read_data(void){
     // The number of lines to be read has to be smaller that n_particles or N
     while (i < n_particles && i < N) {
         // Read the values on the line, the last value is ignored
-        fscanf(dataFile, "%f %f %f %*f", &r[i][0], &r[i][1], &dummy_r);
+        fscanf(dataFile, "%f %f %f %*f", &r_initial[i][0], &r_initial[i][1], &dummy_r);
         // Print the coordinates of the read particle (for debugging)
-        if (debug == 1) { std::cout << "\n" << i + 1 << ": x=" << r[i][0] << ", y=" << r[i][1]; }
+        if (debug == 1) { std::cout << "\n" << i + 1 << ": x=" << r_initial[i][0] << ", y=" << r_initial[i][1]; }
         if (NDIM == 3) {
-            r[i][2] = dummy_r;
-            if (debug) { std::cout << ", z=" << r[i][2]; }
+            r_initial[i][2] = dummy_r;
+            if (debug) { std::cout << ", z=" << r_initial[i][2]; }
         }
         i++;
     }
@@ -168,113 +171,110 @@ void set_packing_fraction(void){
     double scale_factor = pow(target_volume / volume, 1.0 / NDIM);
 
     for(n = 0; n < n_particles; ++n){
-        for(d = 0; d < NDIM; ++d) r[n][d] *= scale_factor;
+        for(d = 0; d < NDIM; ++d) r_initial[n][d] *= scale_factor;
     }
     for(d = 0; d < NDIM; ++d) box[d] *= scale_factor;
 }
 
 void get_distances(void)
 {
-    double Volume = box[0]*box[1]*box[2];
-    printf("Volume = %lf",Volume);
-    char buffer[128];
-    sprintf(buffer, "Exercise2_rList_%i.dat",int(Volume));
-    FILE* fp = fopen(buffer, "w");
-
-    fprintf(fp,"##Volume:\t%lf\n",Volume);
-    fprintf(fp,"#i\tj\tr\n");
-
-    double dist = 0;
+    double dist;
+    int bin;
 
     for (int i = 0; i < n_particles; i++)
     {
-        for (int j = 0 ; j < n_particles; j++)
+        for (int j = i ; j < n_particles; j++)
         {
             if (j == i){ continue;}
 
             // The displacement between the particles (in x and y)
             double dx = abs(r[i][0]-r[j][0]);
             double dy = abs(r[i][1]-r[j][1]);
+            double dz = abs(r[i][2] - r[j][2]);
             // Apply nearest image convention
             if (dx>.5*box[0]) {dx = box[0] - dx;}
             if (dy>.5*box[1]) {dy = box[1] - dy;}
-            dist = pow(dx,2.) + pow(dy,2.);
-            // We also want to do this for the z-coordinate, if NDIM == 3
-            double dz;
-            if (NDIM == 3)
-            {
-                dz = abs(r[i][2] - r[j][2]);
-                if (dz > .5 * box[2]) { dz = box[2] - dz; }
-                dist += pow(dz,2.);
-            }
+            if (dz > .5 * box[2]) { dz = box[2] - dz; }
 
-            fprintf(fp, "%i\t%i\t%lf\n",i,j,sqrt(dist));
+            dist = pow(dx,2.) + pow(dy,2.) + pow(dz,2.);
+            bin = int(dist/dr);
+
+            hist[bin] += 2;
         }
     }
-    fclose(fp);
 }
 
-int main(int argc, char* argv[]){
-
+int main(int argc, char* argv[]) {
     assert(packing_fraction > 0.0 && packing_fraction < 1.0);
     assert(diameter > 0.0);
     assert(delta > 0.0);
-
     radius = 0.5 * diameter;
-
-    if(NDIM == 3) particle_volume = M_PI * pow(diameter, 3.0) / 6.0;
-    else if(NDIM == 2) particle_volume = M_PI * pow(radius, 2.0);
-    else{
+    if (NDIM == 3) particle_volume = M_PI * pow(diameter, 3.0) / 6.0;
+    else if (NDIM == 2) particle_volume = M_PI * pow(radius, 2.0);
+    else {
         printf("Number of dimensions NDIM = %d, not supported.", NDIM);
         return 0;
     }
 
     read_data();
-
-    if(n_particles == 0){
+    if (n_particles == 0) {
         printf("Error: Number of particles, n_particles = 0.\n");
         return 0;
     }
-
     set_packing_fraction();
-    dsfmt_seed(time(NULL));
+    double volume = box[0] * box[1] * box[2];
 
-    if (distanceMode)
-    {
+    double rmax = sqrt(3.) * pow(volume, 1. / 3.) / 2.;
+    int nbins = int(rmax / dr) + 1;
+
+    for (int c = 0; c < configs; c++) {
+        // Reset r
+        for (int p = 0; p < n_particles; p++) {
+            for (int n = 0; n < NDIM; n++) { r[p][n] = r_initial[p][n]; }
+        }
+
+        // Build a liquid
+        dsfmt_seed(time(NULL));
         int accepted = 0;
         int step, n;
-        for(step = 0; step < mc_steps; step++)
-        {
-            for (n = 0; n < n_particles; ++n)
-            {
+        for (step = 0; step < mc_steps; step++) {
+            for (n = 0; n < n_particles; ++n) {
                 accepted += move_particle();
             }
             double moveRatio;
-            if(step % output_steps == 0)
-            {
+            if (step % output_steps == 0) {
                 moveRatio = double(accepted) / (double(n_particles) * double(output_steps));
                 printf("Step %d. Move acceptance: %lf.\n", step, moveRatio);
                 accepted = 0;
             }
         }
+
+        // Calculate distances in configuration
         get_distances();
-        write_data(step);
-        return 1;
     }
 
-    int accepted = 0;
-    int step, n;
-    for(step = 0; step < mc_steps; ++step){
-        for(n = 0; n < n_particles; ++n)
-        {
-            accepted += move_particle();
-        }
+    // Initialize file
+    char buffer[128];
+    sprintf(buffer, "Exercise2_gList_%i.dat", int(volume));
+    FILE *fp = fopen(buffer, "w");
+    fprintf(fp, "##Volume:\t%lf\n", volume);
+    fprintf(fp, "#r\tgr\n");
 
-        if(step % output_steps == 0){
-            printf("Step %d. Move acceptance: %lf.\n", step, (double)accepted / (n_particles * output_steps));
-            accepted = 0;
-            write_data(step);
-        }
+    // Scale bincounts
+    double nID[nbins];
+    double R = 0;
+    double g;
+    for (int i = 0; i < nbins; i++) {
+        hist[i] /= float(configs);
+        nID[i] = 4. * M_PI * (500. / volume) * (pow(R + dr, 3.) - pow(R, 3.)) / 3;
+        g = hist[i] / (nID[i] * 500.);
+
+
+        fprintf(fp, "%lf \t %lf\n", R + 0.5 * dr, g);
+
+        R += dr;
     }
-    return 0;
+
+    fclose(fp);
+    return 1;
 }
