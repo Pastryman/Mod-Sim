@@ -15,13 +15,14 @@
 #define N 1000
 
 bool distanceMode = 1;
+bool debug = 0;
 
 /* Initialization variables */
-const int mc_steps = 10000;
+const int mc_steps = 2000;
 const int output_steps = 100;
-const double packing_fraction = 0.6;
+const double packing_fraction = 0.5;
 const double diameter = 1.0;
-const double delta = 0.1;
+double delta = 0.00001;
 const char* init_filename = "fcc.dat";
 
 /* Simulation variables */
@@ -177,12 +178,12 @@ void get_distances(void)
     sprintf(buffer, "Exercise2_rList_%i.dat",int(Volume));
     FILE* fp = fopen(buffer, "w");
 
-    fprintf(fp,"##Volume:\t",Volume);
+    fprintf(fp,"##Volume:\t%lf\n",Volume);
     fprintf(fp,"#i\tj\tr\n");
 
     float dist = 0;
 
-    for (int i = 0; i<n_particles; i++)
+    for (int i = 0; i < n_particles; i++)
     {
         for (int j = 0 ; j < n_particles; j++)
         {
@@ -218,15 +219,29 @@ int main(int argc, char* argv[]){
     }
 
     set_packing_fraction();
-
+    dsfmt_seed(time(NULL));
 
     if (distanceMode)
     {
+        int accepted = 0;
+        int step, n;
+        for(step = 0; step < mc_steps; step++)
+        {
+            for (n = 0; n < n_particles; ++n)
+            {
+                accepted += move_particle();
+            }
+            double moveRatio;
+            if(step % output_steps == 0)
+            {
+                moveRatio = double(accepted) / (double(n_particles) * double(output_steps));
+                printf("Step %d. Move acceptance: %lf.\n", step, moveRatio);
+                accepted = 0;
+            }
+        }
         get_distances();
         return 1;
     }
-
-    dsfmt_seed(time(NULL));
 
     int accepted = 0;
     int step, n;

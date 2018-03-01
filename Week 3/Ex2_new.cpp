@@ -29,7 +29,6 @@ int output_steps = 100;
 const double packing_fraction = 0.74; //0.7
 const double diameter = 1.0;
 const int maxMeasure = 500;
-const bool rMode
 
 /* Volume change -deltaV, delta V */
 double delta  = 0.05;
