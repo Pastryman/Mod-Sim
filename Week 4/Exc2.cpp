@@ -276,6 +276,5 @@ int main(int argc, char* argv[]){
             write_data(step);
         }
     }
-
     return 0;
 }
