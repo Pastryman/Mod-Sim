@@ -27,53 +27,24 @@ dia=1.0
 
 # File location
 dir = ''
-filename='Exercise2_gList_1308.dat'
 
-# Get volume
-f = open(dir+filename, "r")
-block = f.readlines()
-volumes = []
-for line in block:
-    if line[0:2]=='##':
-        words = line.split(sep='\t')
-        volumes.append(float(words[-1]))
-        position = len(volumes)-1
-        print(filename, "heeft op plek ", position, " een V = ", words[-1])
+
+volumes=[]
+
+# Measured volumes
+volumes = [1308]
+filename='Exercise2_gList_Volume%d_configs500.dat' % (volumes[0])
           
 data = np.genfromtxt(dir + filename , delimiter ='\t')
-
-
-# =============================================================================
-# rmax=np.sqrt(3)/2*volumes[0]**(1./3.)
-# 
-# plt.figure()
-# 
-# Nbins=int(1+3.222*np.log((N_part-1)**2))
-# Nbins=45
-# 
-# # Plot histogram
-# plt.hist(data[:,2],Nbins,range=(0,10))
-# plt.show()
-# 
-# # Data histogram
-# rho = N_part/volumes[0]
-# dr = rmax/Nbins
-# 
-# counts, bin_edges = np.histogram(data[:,2],bins=np.arange(0,rmax+dr,dr))
-# 
-# n_id=4*np.pi*N_part/volumes[0]*((bin_edges[:-1]+dr)**3-bin_edges[:-1]**3)/3
-# 
-# g=(1/N_part)*(counts/n_id)
-# 
-# gx = np.arange(0,rmax+dr,dr)[:-1]+0.5*dr
-# 
-# plt.plot(gx,g)
-# #plt.xlim(0,5)
-# #plt.show()
-# =============================================================================
 
 r=data[:,1]
 g=data[:,2]
 
-plt.plot(r,g)
+plt.plot(r,g,label='V=%.6s' % (volumes[0]))
+
+line=np.ones(len(r))
+plt.plot(r,line,'--')
+plt.xlim(0,9)
+plt.ylim(0.5,1.8)
+plt.legend()
 plt.show()
