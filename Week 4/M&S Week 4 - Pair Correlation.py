@@ -28,23 +28,30 @@ dia=1.0
 # File location
 dir = ''
 
-
-volumes=[]
-
-# Measured volumes
+# Volumes
 volumes = [1308]
-filename='Exercise2_gList_Volume%d_configs500.dat' % (volumes[0])
+
+for i in range(0,len(volumes)):
+    filename='Exercise2_gList_Volume%d_configs500.dat' % (volumes[i])
           
-data = np.genfromtxt(dir + filename , delimiter ='\t')
+    data = np.genfromtxt(dir + filename , delimiter ='\t')
 
-r=data[:,1]
-g=data[:,2]
+    r=data[:,1]
+    g=data[:,2]
+    
+    plt.plot(r,g,'C%d' % (i+1),label='V=%.0f' % (volumes[i]))
+    
 
-plt.plot(r,g,label='V=%.6s' % (volumes[0]))
 
+# Extra line at 1
 line=np.ones(len(r))
-plt.plot(r,line,'--')
-plt.xlim(0,9)
+plt.plot(r,line,'--k',linewidth=0.5)
+
+# Visualisation
+plt.xlim(0.8,9)
 plt.ylim(0.5,1.8)
+plt.xlabel("r")
+plt.ylabel("g(r)")
+#plt.grid()
 plt.legend()
 plt.show()
