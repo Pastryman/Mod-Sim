@@ -237,7 +237,7 @@ int main(int argc, char* argv[]) {
     int accepted = 0;
     int step, n;
     int measurement = 1;
-    for (step = 0; step <= output_steps*configs; step++) {
+    for (step = 0; step <= output_steps*configs + initializeSteps; step++) {
         for (n = 0; n < n_particles; ++n)
         {
             accepted += move_particle();
@@ -248,7 +248,7 @@ int main(int argc, char* argv[]) {
             moveRatio = double(accepted) / (double(n_particles) * double(output_steps));
             printf("Step %d. Move acceptance: %lf.\n", step, moveRatio);
             accepted = 0;
-            if (step>=initializeSteps)
+            if (step>initializeSteps)
             {
                 std::cout << "Measuring configuration: " << measurement << "\n";
                 get_distances();
