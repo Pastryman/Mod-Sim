@@ -17,22 +17,20 @@
 bool debug = 0;
 
 /* Initialization variables */
-const int mc_steps = 500;
+const int configs = 500;
 const int output_steps = 100;
+const int initializeSteps = 2000;
 const double packing_fraction = 0.2;
 const double diameter = 1.0;
 double delta = 0.3;
 const char* init_filename = "fcc.dat";
-const int configs = 10;
-const double dr = 0.3;
+const double dr = 0.1;
 
 /* Simulation variables */
 int n_particles = 0;
 double radius;
 double particle_volume;
-float r_initial[N][NDIM];
 float r[N][NDIM];
-//double box_initial[NDIM];
 double box[NDIM];
 
 // Make the Histogram array
@@ -68,12 +66,12 @@ void read_data(void){
     // The number of lines to be read has to be smaller that n_particles or N
     while (i < n_particles && i < N) {
         // Read the values on the line, the last value is ignored
-        fscanf(dataFile, "%f %f %f %*f", &r_initial[i][0], &r_initial[i][1], &dummy_r);
+        fscanf(dataFile, "%f %f %f %*f", &r[i][0], &r[i][1], &dummy_r);
         // Print the coordinates of the read particle (for debugging)
-        if (debug == 1) { std::cout << "\n" << i + 1 << ": x=" << r_initial[i][0] << ", y=" << r_initial[i][1]; }
+        if (debug == 1) { std::cout << "\n" << i + 1 << ": x=" << r[i][0] << ", y=" << r[i][1]; }
         if (NDIM == 3) {
-            r_initial[i][2] = dummy_r;
-            if (debug) { std::cout << ", z=" << r_initial[i][2]; }
+            r[i][2] = dummy_r;
+            if (debug) { std::cout << ", z=" << r[i][2]; }
         }
         i++;
     }
@@ -171,7 +169,7 @@ void set_packing_fraction(void){
     double scale_factor = pow(target_volume / volume, 1.0 / NDIM);
 
     for(n = 0; n < n_particles; ++n){
-        for(d = 0; d < NDIM; ++d) r_initial[n][d] *= scale_factor;
+        for(d = 0; d < NDIM; ++d) r[n][d] *= scale_factor;
     }
     for(d = 0; d < NDIM; ++d) box[d] *= scale_factor;
 }
@@ -234,37 +232,34 @@ int main(int argc, char* argv[]) {
 
     int nbins = int(rmax / dr) + 1;
 
-    for (int c = 0; c < configs; c++) {
-        std::cout<< "Configuration run: " << c <<"\n";
-        // Reset r
-        for (int p = 0; p < n_particles; p++) {
-            for (int n = 0; n < NDIM; n++) { r[p][n] = r_initial[p][n]; }
-        }
 
-        // Build a liquid
-        dsfmt_seed(time(NULL));
-        int accepted = 0;
-        int step, n;
-        for (step = 0; step < mc_steps; step++) {
-            for (n = 0; n < n_particles; ++n) {
-                accepted += move_particle();
-            }
-            double moveRatio;
-            if (step % output_steps == 0) {
-                moveRatio = double(accepted) / (double(n_particles) * double(output_steps));
-                printf("Step %d. Move acceptance: %lf.\n", step, moveRatio);
-                accepted = 0;
+    dsfmt_seed(time(NULL));
+    int accepted = 0;
+    int step, n;
+    int measurement = 1;
+    for (step = 0; step <= output_steps*configs; step++) {
+        for (n = 0; n < n_particles; ++n)
+        {
+            accepted += move_particle();
+        }
+        double moveRatio;
+        if (step % output_steps == 0)
+        {
+            moveRatio = double(accepted) / (double(n_particles) * double(output_steps));
+            printf("Step %d. Move acceptance: %lf.\n", step, moveRatio);
+            accepted = 0;
+            if (step>=initializeSteps)
+            {
+                std::cout << "Measuring configuration: " << measurement << "\n";
+                get_distances();
+                measurement++;
             }
         }
-
-        // Calculate distances in configuration
-        get_distances();
     }
-
 
     // Initialize file
     char buffer[128];
-    sprintf(buffer, "Exercise2_gList_%i.dat", int(volume));
+    sprintf(buffer, "Exercise2_gList_Volume%i_configs%i.dat", int(volume), configs);
     FILE *fp = fopen(buffer, "w");
     fprintf(fp, "##Volume:\t%lf\n", volume);
     fprintf(fp, "#bin\tr\tgr\n");
