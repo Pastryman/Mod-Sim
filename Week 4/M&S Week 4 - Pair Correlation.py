@@ -29,7 +29,8 @@ dia=1.0
 dir = ''
 
 # Volumes
-volumes = [1308]
+volumes = [2617,5235,1308,1047,872,747,654,581]
+
 
 for i in range(0,len(volumes)):
     filename='Exercise2_gList_Volume%d_configs500.dat' % (volumes[i])
@@ -39,19 +40,38 @@ for i in range(0,len(volumes)):
     r=data[:,1]
     g=data[:,2]
     
-    plt.plot(r,g,'C%d' % (i+1),label='V=%.0f' % (volumes[i]))
+    plt.plot(r,g,'C%d' % (i+1),label='$\\rho=%.3f$' % (500./volumes[i]))
+    line=np.ones(len(r))
+    plt.plot(r,line,'--k',linewidth=0.5)
     
+    plt.xlim(0.8,7)
+    plt.ylim(0.5,3.4)
+    plt.xlabel("r")
+    plt.ylabel("g(r)")
+    plt.legend()
+    plt.savefig('Fig_gr_v%.0f.pdf' % (volumes[i]))
+    plt.show()
+    
+for i in range(0,len(volumes)):
+    filename='Exercise2_gList_Volume%d_configs500.dat' % (volumes[i])
+          
+    data = np.genfromtxt(dir + filename , delimiter ='\t')
 
-
-# Extra line at 1
+    r=data[:,1]
+    g=data[:,2]
+    
+    plt.plot(r,g,'C%d' % (i+1),label='$\\rho=%.3f$' % (500./volumes[i]))
+    
+    
 line=np.ones(len(r))
-plt.plot(r,line,'--k',linewidth=0.5)
-
-# Visualisation
-plt.xlim(0.8,9)
-plt.ylim(0.5,1.8)
+plt.plot(r,line,'--k',linewidth=0.5) 
+plt.xlim(0.8,7)
+plt.ylim(0.5,3.4)
 plt.xlabel("r")
 plt.ylabel("g(r)")
-#plt.grid()
 plt.legend()
-plt.show()
+plt.savefig('Fig_gr_ALL.pdf')
+plt.show()     
+
+
+
