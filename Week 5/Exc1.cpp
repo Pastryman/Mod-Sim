@@ -17,12 +17,12 @@
 // Variables
 const double diam=1.0;
 const int N=500;
-const double packing_fraction=0.10;
+double packing_fraction=0.0;
 const double TOL=0.0001;
-const double runs=100000;
+const double runs=1000;
 const double alpha=0.5;
 
-double dr=0.005; // Note: grid cut-off must be at diam, dr*(a integer)=1.0;
+double dr=0.005; // 0.005 // Note: grid cut-off must be at diam, dr*(a integer)=1.0;
 double gamm[points] = {0.0}; // [Step I]
 double gamm_old[points];
 double c[points];
@@ -31,7 +31,7 @@ void print_file(double dr,double dq, double rho, double pf, int run)
 {
     // Initialize file and printing first parameters
     char buffer[128];
-    sprintf(buffer, "gList_pf%.2f_rho%.4f.dat", pf, rho);
+    sprintf(buffer, "gList_pf%.2f.dat", pf);
     FILE *fp = fopen(buffer, "w");
     fprintf(fp, "# Number of particle: \t%d\n", N);
     fprintf(fp, "# dr: \t%f\n", dr);
@@ -48,8 +48,8 @@ void print_file(double dr,double dq, double rho, double pf, int run)
 
     for(int i=0; i<points; i++)
     {
-        r=(i+1)*dr;
-        q=(i+1)*dq;
+        r=(i)*dr;
+        q=(i)*dq;
 
         // NOTE: c is until now in q-space
         // Calculate S[q] with c[q]
@@ -59,13 +59,13 @@ void print_file(double dr,double dq, double rho, double pf, int run)
         if(r<diam)
         {
             c[i]=-gamm[i]-1.0;
+
         }
         else
         {
             c[i]=0.0;
         }
         // NOTE: c is now in r-space
-
         // Calculate g(r) // γ(r) = h(r) − c(r) and h(r) = g(r) - 1
         g[i]=gamm[i]+c[i]+1;
 
@@ -79,95 +79,142 @@ void print_file(double dr,double dq, double rho, double pf, int run)
 
 int main() {
 
-    double V=(M_PI*pow(diam,3.0)*N)/(6*packing_fraction);
-    double rho=N/V;
-    double r;
-    double q;
-    double dq=M_PI/(points*dr); // drdq = π/L (see lecture notes)
 
-    for(int run=0; run<runs;run++)
+    for(packing_fraction=0.1; packing_fraction<=0.4; packing_fraction+=0.1)
     {
-        // [Step II]
-        //Calculating c(r)
-        for(int i=0;i<points;i++){
+        double V=(M_PI*pow(diam,3.0)*N)/(6*packing_fraction);
+        double rho=N/V;
+        double r;
+        double q;
+        double dq=M_PI/(points*dr); // drdq = π/L (see lecture notes)
+        double cr[points];
+        double gammq[points];
 
-            // Saving old value of gamma (Put to the end of code)
-            // gamm_old[i]=gamm[i];
+        std::cout<< "\n----------------";
+        std::cout<< "\nRun for packing faction: "<< packing_fraction << " started.";
 
-            r=(i+1)*dr;         // Point on the right border of the grid
-            if(r<diam)
-            {
-                c[i]=-gamm[i]-1;
+        for(int run=0; run<runs;run++)
+        {
+
+            // [Step II]
+            //Calculating c(r)
+            for(int i=0;i<points;i++){
+
+                // Saving old value of gamma
+                gamm_old[i]=gamm[i];
+
+                r=(i)*dr;         // Point on the right border of the grid
+                if(r<diam)
+                {
+                    c[i]=-gamm[i]-1;
+                }
+                else
+                {
+                    c[i]=0.0;
+                }
+
+                //std::cout<< "c_r[" <<i << "," << r << "] = \t" << c[i] << "\n";
             }
-            else
+
+            // [Step III]
+            // Fourier transform c(r) to c(q)
+
+            //std::cout<< "\nc[0]: " << c[0];
+
+            for(int i=0;i<points;i++)
             {
-                c[i]=0.0;
+                r=(i)*dr;
+                cr[i]=c[i]*r;
             }
 
-            //std::cout<< "c_r[" <<i << "," << r << "] = \t" << c[i] << "\n";
+            //std::cout<< "\ncr[0]: " << cr[0];
+
+            sinft(cr,points);
+
+            //std::cout<< "\ncr[0]: " << cr[0];
+
+            for(int i=0;i<points;i++)
+            {
+                // Important that the pre-factors of the Fourier transform are added
+                q=(i)*dq;   // Point on the right border of the grid
+
+                if(i!=0){c[i]=(4*M_PI*dr)/(q) * cr[i];}
+                else{c[i]=0;}
+
+
+                //std::cout<< "c_q[" <<i << "," << q << "] = \t" << c[i] << "\n";
+            }
+
+
+            // [Step IV]
+            // Calculate gamma^hat = gamma(q)
+            for(int i=0;i<points;i++)
+            {
+                gamm[i]=rho*pow(c[i],2.0)/(1-rho*c[i]);
+            }
+
+            // [Step V]
+            // Invert gamma(q) to gamma(r) using same Fourier transform
+            for(int i=0;i<points;i++)
+            {
+                q=(i)*dq;
+                gammq[i]=gamm[i]*q;
+            }
+
+            sinft(gammq,points);
+
+            for(int i=0;i<points;i++)
+            {
+                r=(i)*dr;
+                if(i!=0){gamm[i]=dq/(2*pow(M_PI,2.0)*r)*gammq[i];}
+                else{gamm[i]=0;}
+
+                //std::cout<< "gamma_new[" <<i << "," << r << "] = \t" << gamm[i] << "\n";
+            }
+
+
+            // Next step is to calculate if we have a new solution gamma
+            double gamma_difference = 0;
+            for(int i=0; i<points; i++)
+            {
+                // Broyles mixing // Only works for packingfraction <= 0.3
+                gamm_old[i]=alpha*gamm[i]+(1-alpha)*gamm_old[i];
+
+                // Calculating difference
+                gamma_difference+=abs(gamm[i]-gamm_old[i]);
+
+            }
+            if(gamma_difference<=TOL)
+            {
+
+                print_file(dr,dq,rho,packing_fraction,run);
+
+                std::cout<< "\nSolution found!";
+                std::cout<<"\nSum of absolute gamma difference = " << gamma_difference;
+                std::cout<< "\nIn "<< run <<" runs." << "\n";
+
+                break;
+            }
+
+            if(run % 1000==0)
+            {
+                if(run!=0)
+                {
+                    std::cout<< "\nRun: "<< run << ", Gamma difference = " << gamma_difference;
+                }
+
+            }
+
+
         }
 
-        // [Step III]
-        // Fourier transform c(r) to c(q)
+        //std::cout<< "\nDid NOT found solution with gamma difference smaller than TOL! Increase runs." << "\n";
 
-        sinft(c,points);
-        for(int i=0;i<points;i++)
-        {
-            // Important that the pre-factors of the Fourier transform are added
-            q=(i+1)*dq;   // Point on the right border of the grid
-            c[i]=(4*M_PI*dr)/(q) * c[i];
-
-            //std::cout<< "c_q[" <<i << "," << q << "] = \t" << c[i] << "\n";
-        }
-
-
-        // [Step IV]
-        // Calculate gamma^hat = gamma(q)
-        for(int i=0;i<points;i++)
-        {
-            gamm[i]=rho*pow(c[i],2.0)/(1-rho*c[i]);
-        }
-
-        // [Step V]
-        // Invert gamma(q) to gamma(r) using same Fourier transform
-        sinft(gamm,points);
-        for(int i=0;i<points;i++)
-        {
-            r=(i+1)*dr;
-            gamm[i]=dq/(2*pow(M_PI,2.0)*r)*gamm[i];
-
-            //std::cout<< "gamma_new[" <<i << "," << r << "] = \t" << gamm[i] << "\n";
-        }
-
-
-        // Next step is to calculate if we have a new solution gamma
-        double gamma_difference = 0;
-        for(int i=0; i<points; i++)
-        {
-            gamma_difference+=abs(gamm[i]-gamm_old[i]);
-
-            // Broyles mixing // Only works for packingfraction <= 0.3
-            gamm_old[i]=alpha*gamm[i]+(1-alpha)*gamm_old[i];
-        }
-        if(gamma_difference<=TOL)
-        {
-
-            print_file(dr,dq,rho,packing_fraction,run);
-
-            std::cout<< "\nEnd solution found: Sum of absolute gamma difference = " << gamma_difference << "\n";
-            std::cout<< "In "<< run <<" runs." << "\n";
-
-            return 2;
-        }
-
-        std::cout<< "Sum of absolute gamma difference = " << gamma_difference << "\n";
-
+        //return 1;
     }
 
-    std::cout<< "\nDid NOT found solution with gamma difference smaller than TOL! Increase runs." << "\n";
-
+    std::cout<< "\nProgram stopped" << "\n";
     return 1;
-
 
 
 }
