@@ -16,13 +16,13 @@
 
 // Variables
 const double diam=1.0;
-const double N=500;
-const double packing_fraction=0.3;
+const int N=500;
+const double packing_fraction=0.10;
 const double TOL=0.0001;
 const double runs=100000;
+const double alpha=0.5;
 
-
-double dr=0.005; // Note: grid cut-off must be at diam, dr*(int)=1.0;
+double dr=0.005; // Note: grid cut-off must be at diam, dr*(a integer)=1.0;
 double gamm[points] = {0.0}; // [Step I]
 double gamm_old[points];
 double c[points];
@@ -51,7 +51,7 @@ void print_file(double dr,double dq, double rho, double pf, int run)
         r=(i+1)*dr;
         q=(i+1)*dq;
 
-        // NOTE: c is until know in q-space
+        // NOTE: c is until now in q-space
         // Calculate S[q] with c[q]
         S[i]=1/(1-rho*c[i]);
 
@@ -64,7 +64,7 @@ void print_file(double dr,double dq, double rho, double pf, int run)
         {
             c[i]=0.0;
         }
-        // NOTE: c is know in r-space
+        // NOTE: c is now in r-space
 
         // Calculate g(r) // γ(r) = h(r) − c(r) and h(r) = g(r) - 1
         g[i]=gamm[i]+c[i]+1;
@@ -91,8 +91,8 @@ int main() {
         //Calculating c(r)
         for(int i=0;i<points;i++){
 
-            // Saving old value of gamma
-            gamm_old[i]=gamm[i];
+            // Saving old value of gamma (Put to the end of code)
+            // gamm_old[i]=gamm[i];
 
             r=(i+1)*dr;         // Point on the right border of the grid
             if(r<diam)
@@ -145,6 +145,9 @@ int main() {
         for(int i=0; i<points; i++)
         {
             gamma_difference+=abs(gamm[i]-gamm_old[i]);
+
+            // Broyles mixing // Only works for packingfraction <= 0.3
+            gamm_old[i]=alpha*gamm[i]+(1-alpha)*gamm_old[i];
         }
         if(gamma_difference<=TOL)
         {
@@ -156,6 +159,7 @@ int main() {
 
             return 2;
         }
+
         std::cout<< "Sum of absolute gamma difference = " << gamma_difference << "\n";
 
     }
