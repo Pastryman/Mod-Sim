@@ -29,20 +29,16 @@ double box[NDIM];
 double energy = 0.0;
 double virial = 0.0;
 
-//Struct containing the contribution to the energy and to the virial of a given particle
 typedef struct{
     double energy;
     double virial;
 }particle_info_t;
 
-//Struct containing the measurements of pressure and excess chemical potential for the whole system
-//(to be calculated in the routine measure)
 typedef struct{
     double average_pressure;
     double mu_excess;
 }measurement_t;
 
-//Function for the calculation of the contribution to energy and to virial of a given particle
 particle_info_t particle_energy_and_virial(int);
 
 /* Functions */
@@ -53,16 +49,13 @@ measurement_t measure(void){
     return result;
 }
 
-//Function that calculates the contribution of the particle to the energy and the virial
-//When you use it, be carefull not to make double countings
 particle_info_t particle_energy_and_virial(int pid){
     particle_info_t info;
     info.energy = 0.0;
     info.virial = 0.0;
     int n, d;
-    for(n = 0; n < n_particles; ++n){ 
-        if(n == pid) continue; //For each OTHER particle
-	//Its relative distance with pid is calculated (using the MINIMUM IMAGE convention)
+    for(n = 0; n < n_particles; ++n){
+        if(n == pid) continue;
         double dist2 = 0.0;
         for(d = 0; d < NDIM; ++d){
             double min_d = r[pid][d] - r[n][d];
@@ -70,7 +63,6 @@ particle_info_t particle_energy_and_virial(int pid){
             dist2 += min_d * min_d;
         }
 
-	//And the contribution to energy and virial of the pid-n pair of particles 
         if(dist2 <= r_cut * r_cut){
             double temp = 1.0 / (dist2 * dist2 * dist2);
             info.energy += 4.0 * temp * (temp - 1.0) - e_cut;
@@ -82,12 +74,7 @@ particle_info_t particle_energy_and_virial(int pid){
 }
 
 void read_data(void){
-    FILE* fp;
-
-    if((fp = fopen(init_filename, "r")) == NULL) {
-	printf("Error opening the file \"%s\", program will be arrested.\n", init_filename);
-	exit(EXIT_FAILURE);
-    }
+    FILE* fp = fopen(init_filename, "r");
     int n, d;
     double dmin,dmax;
     fscanf(fp, "%d\n", &n_particles);
@@ -97,6 +84,8 @@ void read_data(void){
     }
     for(n = 0; n < n_particles; ++n){
         for(d = 0; d < NDIM; ++d) fscanf(fp, "%lf\t", &r[n][d]);
+        double diameter;
+        fscanf(fp, "%lf\n", &diameter);
     }
     fclose(fp);
 }
@@ -140,7 +129,7 @@ void write_data(int step){
     }
     for(n = 0; n < n_particles; ++n){
         for(d = 0; d < NDIM; ++d) fprintf(fp, "%f\t", r[n][d]);
-        fprintf(fp, "\n");
+        fprintf(fp, "%lf\n", 1.0);
     }
     fclose(fp);
 }
@@ -159,21 +148,12 @@ void set_density(void){
     for(d = 0; d < NDIM; ++d) box[d] *= scale_factor;
 }
 
-
-
-
-/* ############################################ MAIN ############################################ */
-
 int main(int argc, char* argv[]){
-    /* INITIALIZATION */
-
 
     assert(delta > 0.0);
 
     e_cut = 4.0 * (pow(1.0 / r_cut, 12.0) - pow(1.0 / r_cut, 6.0));
 
-
-    //The starting configuration is read and check
     read_data();
 
     if(n_particles == 0){
@@ -181,15 +161,11 @@ int main(int argc, char* argv[]){
         return 0;
     }
 
-    //Density is set
     set_density();
 
-
-    //The box size is checked to be big enough given the interaction's critical radius (for MINIMUM IMAGE convention)
     int d;
     for(d = 0; d < NDIM; ++d) assert(r_cut <= 0.5 * box[d]);
 
-    //The total initial energy and virial are calculated
     int step, n;
     for(n = 0; n < n_particles; ++n){
         particle_info_t info = particle_energy_and_virial(n);
@@ -199,15 +175,12 @@ int main(int argc, char* argv[]){
     energy *= 0.5;
     virial *= 0.5;
 
-    //Random number generation is initialized
-    size_t seed = time(nullptr);
+    size_t seed = time(NULL);
     dsfmt_seed(seed);
 
-    //Volume is calculated
     double volume = 1.0;
     for(d = 0; d < NDIM; ++d) volume *= box[d];
 
-    //And the starting state is printed out
     printf("Starting volume: %f\n", volume);
     printf("Starting energy: %f\n", energy);
     printf("Starting virial: %f\n", virial);
@@ -215,25 +188,16 @@ int main(int argc, char* argv[]){
 
     FILE* fp = fopen("measurements.dat", "w");
 
-
-
-
-
-    /* SIMULATION */
-
-
     int accepted = 0;
-    for(step = 0; step < mc_steps; ++step){ //For each Monte Carlo cycle
-        for(n = 0; n < n_particles; ++n){ //n_particles particle displacements are attempted
+    for(step = 0; step < mc_steps; ++step){
+        for(n = 0; n < n_particles; ++n){
             accepted += move_particle();
         }
 
-	//And the observable are measured
         measurement_t ms = measure();
-	//And printed out
+
         fprintf(fp, "%d\t%f\t%f\n", step, ms.average_pressure, ms.mu_excess);
 
-	//Every output_steps the state of the simulation is stored
         if(step % output_steps == 0){
             printf("Step %d. Move acceptance: %f.\n",
                 step, (double)accepted / (n_particles * output_steps)
