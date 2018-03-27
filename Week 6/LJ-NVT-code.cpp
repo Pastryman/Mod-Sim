@@ -19,7 +19,7 @@ const int    output_steps  = 100;
 const double density       = 1.1;
 double delta               = 2.0;
 const double r_cut         = 2.5;
-const double beta          = 0.5; // 1/2,1,inf,2
+const double beta          = 1.0; // 1/2,1,inf,2
 const char*  init_filename = "fcc.dat";
 
 /* Simulation variables */
