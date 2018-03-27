@@ -16,8 +16,8 @@
 /* Initialization variables */
 const int    mc_steps      = 1000;
 const int    output_steps  = 100;
-const double density       = 0.8;
-const double delta         = 0.1;
+const double density       = 1.1;
+double delta               = 2.0;
 const double r_cut         = 2.5;
 const double beta          = 0.5; // 1/2,1,inf,2
 const char*  init_filename = "fcc.dat";
@@ -50,13 +50,13 @@ measurement_t measure(void) {
     //density/beta
 
     //calculate via result of other method - Exercise 1
-    double f = 0;
+    double f_r = 0;
     for (int n = 0; n < n_particles; ++n) {
-        f += particle_energy_and_virial(n).virial / (2.0 * n_particles);
+        f_r += particle_energy_and_virial(n).virial / 2.0;
     } //Divide by n_particles to average over every particle
 
-    result.average_pressure = (density / beta) + f / (3.0 * box[0] * box[1] * box[2]);
-    std::cout << "\naverage_pressure = " << result.average_pressure;
+    result.average_pressure = (density / beta) + f_r / (3.0 * box[0] * box[1] * box[2]);
+    //std::cout << "\naverage_pressure = " << result.average_pressure;
 
     //Exercise 2
 
@@ -65,7 +65,7 @@ measurement_t measure(void) {
     for (int test = 0; test < NTEST; test++)
     {
         for (int d = 0; d < NDIM; d++) {
-            r[n_particles][d] = (2.0 * dsfmt_genrand() - 1) * box[d];
+            r[n_particles][d] = (2.0 * dsfmt_genrand() - 1.0) * box[d];
         }
         double dU = particle_energy_and_virial(n_particles).energy;
         mu_ex_sum += exp(-beta*dU)/NTEST;
@@ -196,7 +196,8 @@ int main(int argc, char* argv[]){
     int d;
     for(d = 0; d < NDIM; ++d) assert(r_cut <= 0.5 * box[d]);
 
-    int step, n;
+    int step = 0;
+    int n;
     for(n = 0; n < n_particles; ++n){
         particle_info_t info = particle_energy_and_virial(n);
         energy += info.energy;
@@ -216,25 +217,57 @@ int main(int argc, char* argv[]){
     printf("Starting virial: %f\n", virial);
     printf("Starting seed: %lu\n", seed);
 
-    FILE* fp = fopen("measurements.dat", "w");
+    char buffer[128];
+    sprintf(buffer, "measurements_density%.2f_beta%.2f.dat", density, beta);
+    FILE* fp = fopen(buffer, "w");
+    fprintf(fp, "#steps\tpressure\tmu_ex");
 
+    bool measuring = false;
     int accepted = 0;
-    for(step = 0; step < mc_steps; ++step){
-        for(n = 0; n < n_particles; ++n){
+    int nr_of_measurements = 0;
+    double delta_unchanged = 0;
+    while (nr_of_measurements < mc_steps)
+    {
+        for (n = 0; n < n_particles; ++n) {
             accepted += move_particle();
         }
 
         measurement_t ms = measure();
 
-        fprintf(fp, "%d\t%f\t%f\n", step, ms.average_pressure, ms.mu_excess);
-
-        if(step % output_steps == 0){
-            printf("Step %d. Move acceptance: %f.\n",
-                step, (double)accepted / (n_particles * output_steps)
-            );
-            accepted = 0;
-            write_data(step);
+        if (measuring)
+        {
+            fprintf(fp, "%d\t%f\t%f\n", step, ms.average_pressure, ms.mu_excess);
+            nr_of_measurements++;
         }
+
+
+        double moveRatio = double(accepted) / (double(n_particles) * double(output_steps));
+        if (step % output_steps == 0) {
+
+            printf("Step %d. Move acceptance: %f, pressure: %f\n",
+                   step, (double) accepted / (n_particles * output_steps), ms.average_pressure);
+
+            if (moveRatio < 0.35) {
+                delta *= 0.75;
+                std::cout << "delta changed to: " << delta << "\n";
+                delta_unchanged = 0;
+            } else if (moveRatio > 0.60) {
+                delta *= 1.25;
+                std::cout << "delta changed to: " << delta << "\n";
+                delta_unchanged = 0;
+            } else { delta_unchanged++; }
+
+            if (!measuring && delta_unchanged == 3) {
+                measuring = true;
+                std::cout << "\n\nMeasurements have started!\n\n";
+            }
+
+            accepted = 0;
+            // We don't want to output the particle configurations right now
+            //if(step % write_data_steps == 0){write_data(step);}
+        }
+
+        step++;
     }
 
     fclose(fp);
