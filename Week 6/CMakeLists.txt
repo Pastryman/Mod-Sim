@@ -3,4 +3,4 @@ project(Week_5)
 
 set(CMAKE_CXX_STANDARD 17)
 
-add_executable(Code1 LJ-NVT-code.cpp)
+add_executable(LJ LJ-NVT-code.cpp)

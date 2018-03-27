@@ -2,6 +2,7 @@
 #include <time.h>
 #include <assert.h>
 #include <math.h>
+#include <iostream>
 #include "mt19937.h"
 
 #ifndef M_PI
@@ -10,14 +11,15 @@
 
 #define NDIM 3
 #define N 512
+#define NTEST 1000
 
 /* Initialization variables */
-const int    mc_steps      = 10000;
+const int    mc_steps      = 1000;
 const int    output_steps  = 100;
 const double density       = 0.8;
 const double delta         = 0.1;
 const double r_cut         = 2.5;
-const double beta          = 0.5;
+const double beta          = 0.5; // 1/2,1,inf,2
 const char*  init_filename = "fcc.dat";
 
 /* Simulation variables */
@@ -42,9 +44,35 @@ typedef struct{
 particle_info_t particle_energy_and_virial(int);
 
 /* Functions */
-measurement_t measure(void){
+measurement_t measure(void) {
     measurement_t result;
     /*--------- Your code goes here -----------*/
+    //density/beta
+
+    //calculate via result of other method - Exercise 1
+    double f = 0;
+    for (int n = 0; n < n_particles; ++n) {
+        f += particle_energy_and_virial(n).virial / (2.0 * n_particles);
+    } //Divide by n_particles to average over every particle
+
+    result.average_pressure = (density / beta) + f / (3.0 * box[0] * box[1] * box[2]);
+    std::cout << "\naverage_pressure = " << result.average_pressure;
+
+    //Exercise 2
+
+    double mu_ex_sum = 0;
+
+    for (int test = 0; test < NTEST; test++)
+    {
+        for (int d = 0; d < NDIM; d++) {
+            r[n_particles][d] = (2.0 * dsfmt_genrand() - 1) * box[d];
+        }
+        double dU = particle_energy_and_virial(n_particles).energy;
+        mu_ex_sum += exp(-beta*dU)/NTEST;
+    }
+
+    result.mu_excess = -log(mu_ex_sum)/beta;
+    //std::cout << "\naverage_pressure = " << result.average_pressure;
 
     return result;
 }
@@ -156,6 +184,8 @@ int main(int argc, char* argv[]){
 
     read_data();
 
+    //std::cout << r[n_particles][0] << "," << r[n_particles][1] << "," << r[n_particles][2] << "\n";
+
     if(n_particles == 0){
         printf("Error: Number of particles, n_particles = 0.\n");
         return 0;
@@ -208,6 +238,5 @@ int main(int argc, char* argv[]){
     }
 
     fclose(fp);
-
     return 0;
 }
