@@ -49,28 +49,30 @@ measurement_t measure(void) {
     /*--------- Your code goes here -----------*/
     //density/beta
 
-    //calculate via result of other method - Exercise 1
+    //Calculate the virial term using the result of subroutine particle_energy_and_virial()
     double f_r = 0;
     for (int n = 0; n < n_particles; ++n) {
         f_r += particle_energy_and_virial(n).virial / 2.0;
-    } //Divide by n_particles to average over every particle
-
+    }
+    // Calculate the pressure
     result.average_pressure = (density / beta) + f_r / (3.0 * box[0] * box[1] * box[2]);
     //std::cout << "\naverage_pressure = " << result.average_pressure;
 
-    //Exercise 2
-
+    // Perform NTEST Widom tests, by adding a particle
     double mu_ex_sum = 0;
-
     for (int test = 0; test < NTEST; test++)
     {
+        //Add a new particle to the system
         for (int d = 0; d < NDIM; d++) {
             r[n_particles][d] = (2.0 * dsfmt_genrand() - 1.0) * box[d];
         }
+        //The change of energy caused by adding the new particle to the system
         double dU = particle_energy_and_virial(n_particles).energy;
+        //Sum over all NTEST added particles and devide by NTEST, to get the mean over all tests
         mu_ex_sum += exp(-beta*dU)/NTEST;
     }
 
+    //Calculate the mu_excess
     result.mu_excess = -log(mu_ex_sum)/beta;
     //std::cout << "\naverage_pressure = " << result.average_pressure;
 
@@ -217,36 +219,42 @@ int main(int argc, char* argv[]){
     printf("Starting virial: %f\n", virial);
     printf("Starting seed: %lu\n", seed);
 
+    //Create file in which we will write our measurements of the pressure and chem. potential
     char buffer[128];
     sprintf(buffer, "measurements_density%.2f_beta%.2f.dat", density, beta);
     FILE* fp = fopen(buffer, "w");
     fprintf(fp, "#steps\tpressure\tmu_ex");
 
+    //Initialize some variables for the Monte Carlo simulation
     bool measuring = false;
     int accepted = 0;
     int nr_of_measurements = 0;
     double delta_unchanged = 0;
+    //We want to perform Monte Carlo steps until we have performed (mc_steps) measurements
     while (nr_of_measurements < mc_steps)
     {
+        //Move particles
         for (n = 0; n < n_particles; ++n) {
             accepted += move_particle();
         }
 
         measurement_t ms = measure();
 
+        //If we have started measurements, write relevant info the our measurements file
         if (measuring)
         {
             fprintf(fp, "%d\t%f\t%f\n", step, ms.average_pressure, ms.mu_excess);
             nr_of_measurements++;
         }
 
-
+        // The acceptance ratio
         double moveRatio = double(accepted) / (double(n_particles) * double(output_steps));
         if (step % output_steps == 0) {
 
             printf("Step %d. Move acceptance: %f, pressure: %f\n",
                    step, (double) accepted / (n_particles * output_steps), ms.average_pressure);
 
+            // We want our acceptance ratio to be between 0.35 and 0.60
             if (moveRatio < 0.35) {
                 delta *= 0.75;
                 std::cout << "delta changed to: " << delta << "\n";
@@ -256,7 +264,7 @@ int main(int argc, char* argv[]){
                 std::cout << "delta changed to: " << delta << "\n";
                 delta_unchanged = 0;
             } else { delta_unchanged++; }
-
+            // If the delta has not been changed for 3 iterations we have a system in the equilibrium state
             if (!measuring && delta_unchanged == 3) {
                 measuring = true;
                 std::cout << "\n\nMeasurements have started!\n\n";
