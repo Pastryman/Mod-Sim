@@ -12,16 +12,17 @@ using namespace std;
 /* Initializing sudoku*/
 const int size      = 9;
 int sudoku[size][size];
-int sudoku_old[size][size];
 int sudoku_initial[size][size];
-int score;
+int current_score;
 const char*  init_filename = "sudoku.dat";
 
 /* Parameters */
-const double T = 0.5;
+double T = 0.5;
+const int output_steps = 1000;
+const int mc_steps = 1000;
 
 
-void read_sudoku(void){
+void read_sudoku(){
     FILE* fp = fopen(init_filename, "r");
     int r,c;
     for(r = 0; r < size; ++r){
@@ -54,19 +55,89 @@ void print_sudoku(int sud[size][size]){
     std::cout << "---------------------\n";
 }
 
-int get_score(int sud[9][9]){
-    // Calculates score of a sudoku
+int get_score(){
+    // High score is bad
+    // Low score is good
+    int score = 0;
+    int count;
+
+    for (int c = 0; c<size; c++){
+        for (int val = 0; val<size; val++){
+            count = 0;
+            for (int r = 0; r<size; r++){
+                if (sudoku[r][c] == val){count++;}
+            }
+            if (count > 1) {score++;}
+        }
+    }
+
+    return score;
 }
 
-void attempt_change()
+int attempt_change()
 {
+    /*
+     * 1. Pak een random rij
+     * 2. Pak 2 random getallen
+     * 3. Verwissel de getallen
+     * 4. Nieuwe score berekenen
+     * 5. Scores vergelijken (accepted?)
+     * 6. Boltzmann factor (accepted?)
+     * 7. Verandering wel/niet toepassen
+     */
+
+    // Pick a random row
+    int row = int(dsfmt_genrand()*9.)+1;
+    // Pick two random positions (columns in that row)
+    int pos1=0;
+    int pos2=0;
+    bool accept = false;
+    while(!accept)
+    {
+        pos1 = int(dsfmt_genrand()*9.)+1;
+        if (!sudoku_initial[row][pos1]) {accept = true;}
+    }
+    accept = false;
+    while(!accept)
+    {
+        pos2 = int(dsfmt_genrand()*9.)+1;
+        if (!sudoku_initial[row][pos2]) {accept = true;}
+    }
+
+    int nr1 = sudoku[row][pos1];
+    int nr2 = sudoku[row][pos2];
+
+    // Swap the numbers and calculate the new score
+    sudoku[row][pos1] = nr2;
+    sudoku[row][pos2] = nr1;
+    int new_score = get_score();
+
+    // If the new score is better, we accept immediately
+    if (new_score < current_score)
+    {
+        current_score = new_score;
+        return 1;
+    }
+
+    // Calculate the boltzmann factor
+    double boltz = exp(double(current_score-new_score)/T);
+    double rand = dsfmt_genrand();
+    if (rand < boltz)
+    {
+        current_score = new_score;
+        return 1;
+    }
+
+    // If we reach this code, the move is rejected
+    // Change back the swap we made
+    sudoku[row][pos1] = nr1;
+    sudoku[row][pos2] = nr2;
+    return 0;
 
 }
 
 void first_fill(){
     // Fill first instance of sudoku
-
-
     // Method
     // The sudoku is filled stating that every row will contain the values from 1-size (9), so we loop over
     // every row in order to get a 'first fill' for the sudoku
@@ -81,7 +152,6 @@ void first_fill(){
     // Loop over all the rows
     for(int r=0; r<size; r++)
     {
-
         // Pick an integer 'n' ranging [1,size]
         int n=1;
         while(n<=size)
@@ -115,9 +185,6 @@ void first_fill(){
         }
 
     }
-
-
-
 }
 
 int main() {
@@ -128,12 +195,34 @@ int main() {
     read_sudoku();
 
     print_sudoku(sudoku);
+    print_sudoku(sudoku_initial);
 
     first_fill();
-
+    current_score = get_score();
     print_sudoku(sudoku);
 
-    //print_sudoku(sudoku_initial);
+    int step = 0;
+    while (current_score != 0)
+    {
+        int n;
+        int accepted = 0;
+        for (n = 0; n < mc_steps; n++){
+            accepted += attempt_change();
+        }
+
+        if (step%output_steps ==0)
+        {
+            std::cout << "After " << step << "steps, the current sudoku is:\n";
+            print_sudoku(sudoku);
+            std::cout << "Current score is " << current_score << "\n";
+            double acceptanceRatio = double(accepted) / (double(mc_steps) * double(output_steps));
+            printf("Step %d. acceptance: %lf.\n", step, acceptanceRatio);
+            accepted = 0;
+        }
+
+        step++;
+        T-=0.001;
+    }
 
     // Sudoku vullen met random getallen, wel zodat elke rij (keuze) kloppend is
 
