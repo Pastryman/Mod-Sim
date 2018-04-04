@@ -117,7 +117,7 @@ int attempt_change()
     // (7) - Accept new solution
 
     // Pick a random row
-    int row = int(dsfmt_genrand()*9.);
+    int row = int(dsfmt_genrand()*double(size));
     // Pick two random positions (columns in that row)
     int pos1=0;
     int pos2=0;
@@ -127,13 +127,13 @@ int attempt_change()
     // Then this another spot
     while(!accept)
     {
-        pos1 = int(dsfmt_genrand()*9.);
+        pos1 = int(dsfmt_genrand()*double(size));
         if (!sudoku_initial[row][pos1]) {accept = true;}
     }
     accept = false;
     while(!accept)
     {
-        pos2 = int(dsfmt_genrand()*9.);
+        pos2 = int(dsfmt_genrand()*double(size));
         if (!sudoku_initial[row][pos2]) {accept = true;}
     }
 
