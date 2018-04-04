@@ -65,14 +65,75 @@ void attempt_change()
 
 void first_fill(){
     // Fill first instance of sudoku
+
+
+    // Method
+    // The sudoku is filled stating that every row will contain the values from 1-size (9), so we loop over
+    // every row in order to get a 'first fill' for the sudoku
+    //
+    // 1 - Loop over all the rows
+    // 2 - Pick an integer 'n' ranging [1,size]
+    // 3 - If 'n' in row                -> n+1
+    // 4 - If 'n' not in row            -> pick a random spot in the row and check whether it is filled or not
+    // 5 - If filled                    -> pick another random spot
+    // 6 - If not filled                -> give value of 'n' to that spot -> n+1
+
+    // Loop over all the rows
+    for(int r=0; r<size; r++)
+    {
+
+        // Pick an integer 'n' ranging [1,size]
+        int n=1;
+        while(n<=size)
+        {
+            // Check if integer 'n' is already in the row
+            bool inrow = false;
+            for(int c=0;c<size;c++)
+            {
+                if(n==sudoku[r][c])
+                {
+                    inrow=true;
+                    break;
+                }
+            }
+
+            // If integer not in row random select spots until a spot is found where no value is located yet
+            while(inrow==false)
+            {
+                // Select random spot
+                int spot= int(dsfmt_genrand()*size);
+
+                // Check whether spot is filled or not
+                if(sudoku[r][spot]==0)
+                {
+                    sudoku[r][spot]=n;
+                    inrow=true;
+                }
+            }
+
+            n++;
+        }
+
+    }
+
+
+
 }
 
 int main() {
 
+    size_t seed = time(NULL);
+    dsfmt_seed(seed);
+
     read_sudoku();
 
     print_sudoku(sudoku);
-    print_sudoku(sudoku_initial);
+
+    first_fill();
+
+    print_sudoku(sudoku);
+
+    //print_sudoku(sudoku_initial);
 
     // Sudoku vullen met random getallen, wel zodat elke rij (keuze) kloppend is
 
