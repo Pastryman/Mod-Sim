@@ -9,7 +9,7 @@
 #include <sstream>
 using namespace std;
 
-/* Initializing sudoku*/
+/* Initializing Sudoku */
 const int size      = 9;
 int blocksize;
 int sudoku[size][size];
@@ -18,10 +18,10 @@ int current_score;
 const char*  init_filename = "sudoku_extreme.dat";
 
 /* Parameters */
-double T                = 0.6;
+double T                = 0.3;
 double deltaMin         = 0.99999;
 double deltaPlus        = 1.001;
-int stuck_value         = 10;
+int stuck_value         = 2;
 const int output_steps  = 1000;
 const int mc_steps      = 1000;
 const int max_steps     = 400000;
@@ -252,6 +252,8 @@ int main() {
         int n;
         for (n = 0; n < mc_steps; n++){
             accepted += attempt_change();
+
+            // If optimal solution is found, print and stop
             if (current_score == -(size*size*2))
             {
                 std::cout << "\nSOLUTION FOUND\n";
@@ -259,11 +261,11 @@ int main() {
                 print_sudoku(sudoku);
                 return 1;
             }
-
         }
 
         if (step%output_steps ==0)
         {
+            // Output
             //std::cout << "After " << step << " steps, the current sudoku is:\n";
             //print_sudoku(sudoku);
             std::cout << "Current score is " << current_score << "\n";
@@ -274,9 +276,11 @@ int main() {
 
         step++;
         T*=deltaMin;
+
+        // If stuck in a local minimum T is increased
         if (current_score == old_score){stuck++;}
         else {stuck = 0;}
-        if (stuck == stuck_value) {T*=deltaPlus;}
+        if (stuck == stuck_value) {T*=deltaPlus; }
         old_score = current_score;
     }
 
