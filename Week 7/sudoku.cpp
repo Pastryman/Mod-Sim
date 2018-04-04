@@ -11,6 +11,7 @@ using namespace std;
 
 /* Initializing sudoku*/
 const int size      = 9;
+int blocksize;
 int sudoku[size][size];
 int sudoku_initial[size][size];
 int current_score;
@@ -20,7 +21,7 @@ const char*  init_filename = "sudoku.dat";
 double T = 0.5;
 const int output_steps = 1000;
 const int mc_steps = 1000;
-
+const int max_steps = 400000;
 
 void read_sudoku(){
     FILE* fp = fopen(init_filename, "r");
@@ -62,15 +63,28 @@ int get_score(){
     int count;
 
     for (int c = 0; c<size; c++){
-        for (int val = 0; val<size; val++){
+        for (int val = 1; val<size+1; val++){
             count = 0;
             for (int r = 0; r<size; r++){
                 if (sudoku[r][c] == val){count++;}
             }
-            if (count > 1) {score++;}
+            if (count == 1) {score--;}
         }
     }
 
+    for (int c = 0; c < blocksize; c++) {
+        for (int r = 0; r < blocksize; r++) {
+            for (int val = 1; val < size + 1; val++) {
+                count = 0;
+                for (int i = 0; i < blocksize; i++) {
+                    for (int j = 0; j < blocksize; j++) {
+                        if (sudoku[(r * blocksize) + i][(c * blocksize) + j] == val) { count++; }
+                    }
+                }
+                if (count == 1) { score--; }
+            }
+        }
+    }
     return score;
 }
 
@@ -87,20 +101,20 @@ int attempt_change()
      */
 
     // Pick a random row
-    int row = int(dsfmt_genrand()*9.)+1;
+    int row = int(dsfmt_genrand()*9.);
     // Pick two random positions (columns in that row)
     int pos1=0;
     int pos2=0;
     bool accept = false;
     while(!accept)
     {
-        pos1 = int(dsfmt_genrand()*9.)+1;
+        pos1 = int(dsfmt_genrand()*9.);
         if (!sudoku_initial[row][pos1]) {accept = true;}
     }
     accept = false;
     while(!accept)
     {
-        pos2 = int(dsfmt_genrand()*9.)+1;
+        pos2 = int(dsfmt_genrand()*9.);
         if (!sudoku_initial[row][pos2]) {accept = true;}
     }
 
@@ -191,6 +205,8 @@ int main() {
 
     size_t seed = time(NULL);
     dsfmt_seed(seed);
+    blocksize = int(sqrt(double(size)));
+    std::cout<<"\n blocksize = " << blocksize << "\n";
 
     read_sudoku();
 
@@ -202,12 +218,18 @@ int main() {
     print_sudoku(sudoku);
 
     int step = 0;
-    while (current_score != 0)
+    int accepted = 0;
+    while (step < max_steps)
     {
         int n;
-        int accepted = 0;
         for (n = 0; n < mc_steps; n++){
             accepted += attempt_change();
+            if (current_score == -(size*size*2))
+            {
+                std::cout << "SOLUTION FOUND\n";
+                print_sudoku(sudoku);
+                return 1;
+            }
         }
 
         if (step%output_steps ==0)
@@ -216,12 +238,12 @@ int main() {
             print_sudoku(sudoku);
             std::cout << "Current score is " << current_score << "\n";
             double acceptanceRatio = double(accepted) / (double(mc_steps) * double(output_steps));
-            printf("Step %d. acceptance: %lf.\n", step, acceptanceRatio);
+            printf("Step %d. acceptance: %lf. T: %lf\n", step, acceptanceRatio,T);
             accepted = 0;
         }
 
         step++;
-        T-=0.001;
+        T*=0.99999;
     }
 
     // Sudoku vullen met random getallen, wel zodat elke rij (keuze) kloppend is
