@@ -15,15 +15,23 @@ int blocksize;
 int sudoku[size][size];
 int sudoku_initial[size][size];
 int current_score;
-const char*  init_filename = "sudoku.dat";
+const char*  init_filename = "sudoku_extreme.dat";
 
 /* Parameters */
-double T = 0.5;
-const int output_steps = 1000;
-const int mc_steps = 1000;
-const int max_steps = 400000;
+double T                = 0.6;
+double deltaMin         = 0.99999;
+double deltaPlus        = 1.001;
+int stuck_value         = 10;
+const int output_steps  = 1000;
+const int mc_steps      = 1000;
+const int max_steps     = 400000;
+
 
 void read_sudoku(){
+    // Method that reads the Sudoku
+    // File must be a .dat file seprated by '\t'
+    // Vacant spots must be filled with 0
+
     FILE* fp = fopen(init_filename, "r");
     int r,c;
     for(r = 0; r < size; ++r){
@@ -34,6 +42,8 @@ void read_sudoku(){
             else{
                 fscanf(fp, "%d\t", &sudoku[r][c]);
             }
+            // Also saves the the location of the initial (nonzero) values  in the Sudoku
+            // These spots are not allowed to be swapped
             if (sudoku[r][c]!=0) {sudoku_initial[r][c]=1;}
         }
     }
@@ -41,6 +51,9 @@ void read_sudoku(){
 }
 
 void print_sudoku(int sud[size][size]){
+    // Method that prints the Sudoku
+    // Code optimilized for a 9x9 Sudoku
+
     for(int r = 0; r < size; ++r){
         if(r*r % size == 0){std::cout << "---------------------\n"; }
         for(int c = 0; c < size; ++c){
@@ -57,11 +70,12 @@ void print_sudoku(int sud[size][size]){
 }
 
 int get_score(){
-    // High score is bad
-    // Low score is good
+    // High score is bad (less minus)
+    // Low score is good (more minus)
     int score = 0;
     int count;
 
+    // Count all the unique values in the columns
     for (int c = 0; c<size; c++){
         for (int val = 1; val<size+1; val++){
             count = 0;
@@ -72,6 +86,7 @@ int get_score(){
         }
     }
 
+    // Count all the unique values in the boxes
     for (int c = 0; c < blocksize; c++) {
         for (int r = 0; r < blocksize; r++) {
             for (int val = 1; val < size + 1; val++) {
@@ -90,15 +105,16 @@ int get_score(){
 
 int attempt_change()
 {
-    /*
-     * 1. Pak een random rij
-     * 2. Pak 2 random getallen
-     * 3. Verwissel de getallen
-     * 4. Nieuwe score berekenen
-     * 5. Scores vergelijken (accepted?)
-     * 6. Boltzmann factor (accepted?)
-     * 7. Verandering wel/niet toepassen
-     */
+    // Method that tries two swap two values
+    // returns 1 (accepted) or 0 (rejected)
+    //
+    // 1 - Pick a random row
+    // 2 - Pick two random integers
+    // 3 - Swap integers in rwo
+    // 4 - Calculate score of new solution
+    // 5 - If better -> accepted
+    // 6 - If worse -> Calculate Boltzmann factor -> accepted or rejected
+    // (7) - Accept new solution
 
     // Pick a random row
     int row = int(dsfmt_genrand()*9.);
@@ -106,6 +122,9 @@ int attempt_change()
     int pos1=0;
     int pos2=0;
     bool accept = false;
+
+    // If one of the two selected positions is on a spot of a nonzero value in the initial Sudoku
+    // Then this another spot
     while(!accept)
     {
         pos1 = int(dsfmt_genrand()*9.);
@@ -118,6 +137,7 @@ int attempt_change()
         if (!sudoku_initial[row][pos2]) {accept = true;}
     }
 
+    // Values of the two selected spots
     int nr1 = sudoku[row][pos1];
     int nr2 = sudoku[row][pos2];
 
@@ -151,10 +171,11 @@ int attempt_change()
 }
 
 void first_fill(){
-    // Fill first instance of sudoku
+    // Fill first instance of Sudoku
+    //
     // Method
     // The sudoku is filled stating that every row will contain the values from 1-size (9), so we loop over
-    // every row in order to get a 'first fill' for the sudoku
+    // every row in order to get a 'first fill' for the Sudoku
     //
     // 1 - Loop over all the rows
     // 2 - Pick an integer 'n' ranging [1,size]
@@ -182,7 +203,7 @@ void first_fill(){
             }
 
             // If integer not in row random select spots until a spot is found where no value is located yet
-            while(inrow==false)
+            while(!inrow)
             {
                 // Select random spot
                 int spot= int(dsfmt_genrand()*size);
@@ -203,22 +224,29 @@ void first_fill(){
 
 int main() {
 
+    // Intializing seed
     size_t seed = time(NULL);
     dsfmt_seed(seed);
-    blocksize = int(sqrt(double(size)));
-    std::cout<<"\n blocksize = " << blocksize << "\n";
 
+    // Calculate block size
+    blocksize = int(sqrt(double(size)));
+
+    // Read Sudoku
     read_sudoku();
 
+    // Print initial Sudoku
     print_sudoku(sudoku);
-    print_sudoku(sudoku_initial);
 
+    // Randomly fill Sudoku and calculate score
     first_fill();
     current_score = get_score();
-    print_sudoku(sudoku);
 
+
+    // Monte Carlo simulation
     int step = 0;
     int accepted = 0;
+    int old_score = 0;
+    int stuck = 0;
     while (step < max_steps)
     {
         int n;
@@ -226,16 +254,18 @@ int main() {
             accepted += attempt_change();
             if (current_score == -(size*size*2))
             {
-                std::cout << "SOLUTION FOUND\n";
+                std::cout << "\nSOLUTION FOUND\n";
+                std::cout << "step = " << step << ". T = " << T << "\n";
                 print_sudoku(sudoku);
                 return 1;
             }
+
         }
 
         if (step%output_steps ==0)
         {
-            std::cout << "After " << step << "steps, the current sudoku is:\n";
-            print_sudoku(sudoku);
+            //std::cout << "After " << step << " steps, the current sudoku is:\n";
+            //print_sudoku(sudoku);
             std::cout << "Current score is " << current_score << "\n";
             double acceptanceRatio = double(accepted) / (double(mc_steps) * double(output_steps));
             printf("Step %d. acceptance: %lf. T: %lf\n", step, acceptanceRatio,T);
@@ -243,25 +273,12 @@ int main() {
         }
 
         step++;
-        T*=0.99999;
+        T*=deltaMin;
+        if (current_score == old_score){stuck++;}
+        else {stuck = 0;}
+        if (stuck == stuck_value) {T*=deltaPlus;}
+        old_score = current_score;
     }
-
-    // Sudoku vullen met random getallen, wel zodat elke rij (keuze) kloppend is
-
-    // Iteraties doen totdat we een oplossing hebben
-    // In elke iteratie wordt T verlaagd
-    // Iteratie bestaat uit:
-    //      1. Pak 2 getallen in een random rij en verwissel ze
-    //      2. Bereken oude en nieuwe score en test old<new
-    //      3. Test de Boltzmann factor
-    //      4. Sta wissel toe of wissel terug
-    //      5. Trek een bak
-    // Stap 1-5 zouden in 1 methode kunnen, is wel zo mooi
-    //      6. Verlaag T
-    //      7. Check of we de oplossing hebben
-
-    // Bedenk wat we willen printen tussendoor en wanneer
-    // Elke 1000 iteraties: score, sudoku en acceptance rate
 
     return 1;
 }
