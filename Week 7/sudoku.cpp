@@ -18,7 +18,7 @@ int current_score;
 const char*  init_filename = "sudoku_extreme.dat";
 
 /* Parameters */
-double T                = 1.0;
+double T                = 0.5;
 double deltaMin         = 0.99999;
 double deltaPlus        = 1.001;
 int stuck_value         = 2;
