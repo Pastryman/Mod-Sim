@@ -143,24 +143,31 @@ void set_packing_fraction(void){
 void update_forces(){
     for(int i = 0; i < n_particles; i++){
         for (int j = 0; j < i; j++){
-            for (int d = 0; d<NDIM; d++){
-                // Distance between particles
-                double dist = r[i][d]-r[j][d];
-                // Periodic boundary conditions
-                dist = dist - (int)(2.0 * dist / box[d]) * box[d];
-                double dist2 = dist*dist;
 
-                if (dist2 < rcut*rcut){
-                    // Calculate the force on the particles using the LJ potential
-                    double r2i=1/dist2;
-                    double r6i=pow(r2i,3.);
-                    double ff = 48 * r2i * r6i*(r6i-0.5);
-                    // Apply the Force to the particles (in opposite direction)
-                    F[i][d] += ff*dist;
-                    F[j][d] -= ff*dist;
-                    // Update the potential energy
-                    PotE += 4*r6i*(r6i-1)-ecut;
+            double dist2=0;
+            double dist[NDIM];
+            for (int d = 0; d<NDIM; d++) {
+                // Distance between particles
+                dist[d] = r[i][d] - r[j][d];
+                dist[d] = dist[d] - int(2.0 * dist[d] / box[d]) * box[d];
+                dist2 += dist[d]*dist[d];
+            }
+
+            if (dist2 < rcut*rcut){
+                // Calculate the force on the particles using the LJ potential
+                double r2i=1/dist2;
+                double r6i=pow(r2i,3.);
+                double ff = 48 * r2i * r6i*(r6i-0.5);
+
+
+                // Apply the Force to the particles (in opposite direction)
+                for(int d=0; d<NDIM;d++){
+                    F[i][d] += ff*dist[d];
+                    F[j][d] -= ff*dist[d];
+
                 }
+                // Update the potential energy
+                PotE += 4*r6i*(r6i-1)-ecut;
             }
 
         }
@@ -203,12 +210,6 @@ void initialize_config() {
 
     }
 
-    //Total energy must be (3/2)*N*kb*T
-
-    for (int n = 0; n < n_particles; n++){
-
-    }
-
 }
 
 int main(int argc, char* argv[]){
@@ -239,12 +240,13 @@ int main(int argc, char* argv[]){
     write_data(0);
     initialize_config();
     update_forces();
+    //write_data(1);
 
     double time=0;
     while(time<sim_time){
         update_kinematics();
         time+=dt;
-        std::cout << "time = " << time;
+        std::cout << "\ntime = " << time;
         write_data(time);
     }
 
