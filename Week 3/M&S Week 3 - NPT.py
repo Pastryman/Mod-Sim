@@ -12,8 +12,8 @@ Created on Tue Feb 27 11:36:00 2018
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.mlab as mlab
-#from sympy import plot , symbols , diff, integrate, pi, Rational, Symbol, sin, cos, lambdify, exp, nsimplify, Sum
-#from sympy.abc import x
+from sympy import plot , symbols , diff, integrate, pi, Rational, Symbol, sin, cos, lambdify, exp, nsimplify, Sum
+from sympy.abc import x
 
 
 # ----------------------------------------------------------------------------
