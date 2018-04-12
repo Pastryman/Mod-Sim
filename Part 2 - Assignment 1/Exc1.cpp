@@ -170,7 +170,10 @@ void update_forces(){
 void update_kinematics(){
     for(int n = 0; n < n_particles; ++n){
         for(int d = 0; d < NDIM; ++d){
-            r[n][d] = float(r[n][d] + v[n][d]*dt + F[n][d]*dt*dt/(2.));
+            double r_new = r[n][d] + v[n][d]*dt + F[n][d]*dt*dt/(2.);
+            r_new =  r_new - int((r_new / box[d])* box[d]);
+            if (r_new<0) {r_new = box[d]-r_new;}
+            r[n][d] = float(r_new);
             F_old[n][d] = F[n][d];
             update_forces();
             v[n][d]=v[n][d] + (F[n][d]+F_old[n][d])*dt/2.;
