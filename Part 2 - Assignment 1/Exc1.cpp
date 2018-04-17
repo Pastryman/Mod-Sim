@@ -28,9 +28,9 @@ const int mc_steps = 200000;
 int output_steps = 100;
 const double packing_fraction = 0.3; //0.7
 const double diameter = 1.0;
-const double dt = 0.01;
+const double dt = 0.0001;
 const int maxMeasure = 500;
-const double sim_time = 0.03;
+const double sim_time = 0.0004;
 
 /* Volume change -deltaV, delta V */
 double delta  = 0.05;
@@ -108,7 +108,7 @@ void read_data(void){
 
 }
 
-void write_data(double time){
+void write_data(double time, float list[][NDIM]){
     char buffer[128];
     sprintf(buffer, "coords_time%f.dat", time);
     FILE* fp = fopen(buffer, "w");
@@ -118,7 +118,7 @@ void write_data(double time){
         fprintf(fp, "%lf %lf\n",0.0,box[d]);
     }
     for(n = 0; n < n_particles; ++n){
-        for(d = 0; d < NDIM; ++d) fprintf(fp, "%lf\t", r[n][d]);
+        for(d = 0; d < NDIM; ++d) fprintf(fp, "%lf\t", list[n][d]);
         fprintf(fp, "%lf\n", diameter);
     }
     fclose(fp);
@@ -164,12 +164,10 @@ void update_forces(){
                 for(int d=0; d<NDIM;d++){
                     F[i][d] += ff*dist[d];
                     F[j][d] -= ff*dist[d];
-
                 }
                 // Update the potential energy
                 PotE += 4*r6i*(r6i-1)-ecut;
             }
-
         }
     }
 }
@@ -178,8 +176,8 @@ void update_kinematics(){
     for(int n = 0; n < n_particles; ++n){
         for(int d = 0; d < NDIM; ++d){
             double r_new = r[n][d] + v[n][d]*dt + F[n][d]*dt*dt/(2.);
-            r_new =  r_new - int((r_new / box[d])* box[d]);
             if (r_new<0) {r_new = box[d]-r_new;}
+            if (r_new>box[d]) {r_new -= box[d];}
             r[n][d] = float(r_new);
             F_old[n][d] = F[n][d];
             update_forces();
@@ -237,18 +235,24 @@ int main(int argc, char* argv[]){
 
     dsfmt_seed(time(NULL));
 
-    write_data(0);
+    //write_data(0);
     initialize_config();
+    std::cout << "\nInitializing configuration done";
+    write_data(98,v);
     update_forces();
-    //write_data(1);
+    std::cout << "\nUpdating forces done (first time)";
+    write_data(99,F);
 
     double time=0;
     while(time<sim_time){
-        update_kinematics();
-        time+=dt;
         std::cout << "\ntime = " << time;
-        write_data(time);
+        update_kinematics();
+        write_data(time+100,F);
+        write_data(time+1000,v);
+        write_data(time,r);
+        time+=dt;
     }
+
 
     /*char buffer[128];
     if (liquid) {sprintf(buffer, "Exercise2_P%.0f_liquid.dat",betaP);}
