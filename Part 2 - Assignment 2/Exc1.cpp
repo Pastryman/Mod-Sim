@@ -28,13 +28,13 @@ const bool debug = 0;
 
 /* Initialization variables */
 const int mc_steps = 200000;
-int output_steps = 10;
-int min_output_steps = 100;
-const double packing_fraction = 0.2; //0.7
+int output_steps = 1;
+int min_output_steps = 1000;
+const double packing_fraction = 0.15; //0.7
 const double diameter = 1.0;
 const double dt = 0.0001;
 const int maxMeasure = 500;
-const double sim_time = 1000;
+const double sim_time = 2.0;
 
 /* Volume change -deltaV, delta V */
 double delta  = 0.05;
@@ -132,7 +132,7 @@ void set_packing_fraction(void){
     double volume = 1.0;
     int d, n;
     for(d = 0; d < NDIM; ++d) volume *= box[d];
-    std::cout<<"\nold system volume = " <<volume << "\n";
+    std::cout<<"\nold system volume = " <<volume;
 
     double target_volume = (n_particles * particle_volume) / packing_fraction;
     double scale_factor = pow(target_volume / volume, 1.0 / NDIM);
@@ -145,29 +145,15 @@ void set_packing_fraction(void){
 }
 
 void update_forces(){
-
-
-    // Resetting Forces and Energy
-    PotE=0;
-    for(int i = 0; i < n_particles; i++){
-        for (int d = 0; d<NDIM; d++) {
-            F[i][d]=0.0;
-        }
-    }
-
     for(int i = 0; i < n_particles; i++){
         for (int j = 0; j < i; j++){
+
             double dist2=0;
             double dist[NDIM];
             for (int d = 0; d<NDIM; d++) {
                 // Distance between particles
                 dist[d] = r[i][d] - r[j][d];
-                if(dist[d]>0.5*box[d]){
-                    dist[d] = -(box[d]-dist[d]);
-                }
-                if(dist[d]< -(0.5*box[d])){
-                    dist[d] = box[d]+dist[d];
-                }
+                dist[d] = dist[d] - int(2.0 * dist[d] / box[d]) * box[d];
                 dist2 += dist[d]*dist[d];
             }
 
@@ -175,7 +161,8 @@ void update_forces(){
                 // Calculate the force on the particles using the LJ potential
                 double r2i=1/dist2;
                 double r6i=pow(r2i,3.);
-                double ff = 48 * r2i * r6i*(r6i-0.5);
+                double ff = -(48 * r2i * r6i*(r6i-0.5));
+
 
                 // Apply the Force to the particles (in opposite direction)
                 for(int d=0; d<NDIM;d++){
@@ -258,7 +245,6 @@ int main(int argc, char* argv[]){
     dsfmt_seed(time(NULL));
 
     std::cout << "\nStart initializing ";
-    std::cout << "\nNumber of particles = " << n_particles;
     initialize_config();
     std::cout << "\nInitializing configuration done\nStarting to update forces (first time)";
     update_forces();
@@ -272,7 +258,8 @@ int main(int argc, char* argv[]){
 
         if ((step%output_steps) == 0 && step > min_output_steps )
         {
-            std::cout << "\nTime = " << time << "   " << "Potential Energy = " << PotE;
+            std::cout << "\ntime = " << time;
+            std::cout << "\nPotential Energy = " << PotE;
             write_data(time,r,'r');
         }
 

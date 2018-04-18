@@ -5,6 +5,7 @@
 #include "mt19937.h"
 #include <iostream>
 #include <fstream>
+#include <random>
 #include <algorithm>
 #include <chrono>  // for high_resolution_clock
 
@@ -36,12 +37,12 @@ const double dt = 0.0001;
 const int maxMeasure = 500;
 const double sim_time = 1000;
 
-/* Volume change -deltaV, delta V */
-double delta  = 0.05;
-double deltaV = 0.05;
+/* Temperature variables */
+const double temp = 1;              // kT of the system
+double kT;                          // Global, used to calculate kinetic temperature of system
+const double freq = 0.5;            // freq*∆t the frequency of stochastic collisions which determines the coupling strength to the heat bath
 
 /* Reduced pressure \beta P */
-const double temp = 1;
 const double betaP = 5;
 const char* init_filename = "fcc.dat";
 const double rcut = 2.5;
@@ -60,6 +61,7 @@ float F[N][NDIM];
 float F_old[N][NDIM];
 double box[NDIM];
 double PotE;
+double KinE;
 
 /*
  * Method: read_data
@@ -190,6 +192,8 @@ void update_forces(){
 }
 
 void update_kinematics(){
+
+    // Update positions r(t)->r(t+dt)
     for(int n = 0; n < n_particles; ++n){
         for(int d = 0; d < NDIM; ++d){
             double r_new = r[n][d] + v[n][d]*dt + F[n][d]*dt*dt/(2.);
@@ -199,10 +203,33 @@ void update_kinematics(){
             F_old[n][d] = F[n][d];
         }
     }
+
+    // Update forces F(t)->F(t+dt)
     update_forces();
+
+    // Update velocities v(t)->v(t+dt)
+    // Calculating temperature: Ekin=(1/2)*m*Σv^2=(3/2)*N*kT // 3 in 3D
+
+    kT=0;
+    KinE=0;
     for(int n = 0; n < n_particles; ++n) {
         for (int d = 0; d < NDIM; ++d) {
             v[n][d] = v[n][d] + (F[n][d] + F_old[n][d]) * dt / 2.;
+            KinE+=v[n][d]*v[n][d];
+        }
+    }
+
+    kT=KinE/(NDIM*n_particles);
+    KinE=KinE/2.0;
+
+    // The Andersen Thermostat
+    double sigma = sqrt(temp);
+    for(int n = 0; n < n_particles; ++n) {
+        if(freq*dt>dsfmt_genrand()){
+            for (int d = 0; d < NDIM; ++d) {
+                double v_temp = exp(-0.5*pow(v[n][d]/sigma,2.0)); // Gaussian Distribution w/o N=1/(sigma*sqrt(2*M_PI))
+                v[n][d] = float(v_temp);
+            }
         }
     }
 
@@ -262,83 +289,30 @@ int main(int argc, char* argv[]){
     initialize_config();
     std::cout << "\nInitializing configuration done\nStarting to update forces (first time)";
     update_forces();
-    std::cout << "\nUpdating forces done" << std::flush;
+    std::cout << "\nUpdating forces done";
 
     double time=0;
     int step = 0;
+    double TotE=0;
+
     while(time<sim_time)
     {
+
         update_kinematics();
+
+        TotE=KinE+PotE;
 
         if ((step%output_steps) == 0 && step > min_output_steps )
         {
-            std::cout << "\nTime = " << time << "   " << "Potential Energy = " << PotE;
+
+            printf("\nTime = %.4f \t PotE = %.2f \t KinE = %.2f \t TotE = %.2f \t kT = %.4f",time,PotE,KinE,TotE,kT);
+            //std::cout << "\nTime = " << time << "" << "PotE = " << PotE;
             write_data(time,r,'r');
         }
-
         time+=dt;
         step++;
+
     }
-
-
-    /*char buffer[128];
-    if (liquid) {sprintf(buffer, "Exercise2_P%.0f_liquid.dat",betaP);}
-    else {sprintf(buffer, "Exercise2_P_fcc%.0f.dat",betaP);}
-    FILE* fp = fopen(buffer, "w");
-
-    printf("\n#Step \t Volume \t Move-acceptance\t Volume-acceptance");
-    fprintf(fp,"#Step \t Volume \t Move-acceptance\t Volume-acceptance");
-
-    int move_accepted = 0;
-    int vol_accepted = 0;
-    int step, n;
-    double volume_old = liquid?100000:0;
-    bool measure = 0;
-    int measurements = 0;
-    for(step = 0; step < mc_steps; ++step){
-        for(n = 0; n < n_particles; ++n){
-            move_accepted += move_particle();
-        }
-        vol_accepted += change_volume();
-
-        double moveRatio = double(move_accepted) / (double(n_particles) * double(output_steps));
-        double volumeRatio = double(vol_accepted) /  double(output_steps);
-        if(step % output_steps == 0){
-            std::cout << std::flush;
-            printf("\n%d \t %lf \t %lf \t %lf",
-                   step, box[0] * box[1] * box[2],
-                   moveRatio,
-                   volumeRatio);
-            if(step % 10000 == 0 && !measure)
-            {
-                double volume_current = box[0]*box[1]*box[2];
-                if((volume_current < volume_old && !liquid)||(volume_current > volume_old && liquid))
-                {
-                    measure = 1;
-                    std::cout << "\nMetingen zijn begonnen!\n";
-                }
-                volume_old = volume_current;
-            }
-            if(measure)
-            {
-                fprintf(fp,"\n%d \t %lf \t %lf \t %lf",
-                        step, box[0] * box[1] * box[2],
-                        moveRatio,
-                        volumeRatio);
-                measurements++;
-                if (measurements>maxMeasure){fclose(fp);return 1;}
-            }
-            if(moveRatio < 0.35) {delta *= 0.8; std::cout << "\ndelta changed to: " << delta;}
-            if(moveRatio > 0.65) {delta *= 1.2; std::cout << "\ndelta changed to: " << delta;}
-            if(volumeRatio < 0.35) {deltaV *= 0.8; std::cout << "\ndeltaV changed to: " << deltaV;}
-            if(volumeRatio > 0.65) {deltaV *= 1.2; std::cout << "\ndeltaV changed to: " << deltaV;}
-            //std::cout << "Vol accepted: " << vol_accepted<< "\n";
-            move_accepted = 0;
-            vol_accepted = 0;
-            //write_data(step);
-        }
-    }
-    fclose(fp);*/
 
     return 0;
 }
