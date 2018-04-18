@@ -6,6 +6,9 @@
 #include <iostream>
 #include <fstream>
 #include <algorithm>
+#include <chrono>  // for high_resolution_clock
+
+using namespace std;
 
 
 #ifndef M_PI
@@ -25,12 +28,13 @@ const bool debug = 0;
 
 /* Initialization variables */
 const int mc_steps = 200000;
-int output_steps = 100;
-const double packing_fraction = 0.3; //0.7
+int output_steps = 1;
+int min_output_steps = 10000;
+const double packing_fraction = 0.2; //0.7
 const double diameter = 1.0;
-const double dt = 0.0001;
+const double dt = 0.00001;
 const int maxMeasure = 500;
-const double sim_time = 0.0004;
+const double sim_time = 0.2;
 
 /* Volume change -deltaV, delta V */
 double delta  = 0.05;
@@ -108,9 +112,9 @@ void read_data(void){
 
 }
 
-void write_data(double time, float list[][NDIM]){
+void write_data(double time, float list[][NDIM], char name){
     char buffer[128];
-    sprintf(buffer, "coords_time%f.dat", time);
+    sprintf(buffer, "%c_time%f.dat", name,time);
     FILE* fp = fopen(buffer, "w");
     int d, n;
     fprintf(fp, "%d\n", n_particles);
@@ -176,14 +180,19 @@ void update_kinematics(){
     for(int n = 0; n < n_particles; ++n){
         for(int d = 0; d < NDIM; ++d){
             double r_new = r[n][d] + v[n][d]*dt + F[n][d]*dt*dt/(2.);
-            if (r_new<0) {r_new = box[d]-r_new;}
-            if (r_new>box[d]) {r_new -= box[d];}
+            if (r_new<0) {r_new = box[d]-fmod(-r_new,box[d]);}
+            if (r_new>box[d]) {r_new = fmod(r_new,box[d]);}
             r[n][d] = float(r_new);
             F_old[n][d] = F[n][d];
-            update_forces();
-            v[n][d]=v[n][d] + (F[n][d]+F_old[n][d])*dt/2.;
         }
     }
+    update_forces();
+    for(int n = 0; n < n_particles; ++n) {
+        for (int d = 0; d < NDIM; ++d) {
+            v[n][d] = v[n][d] + (F[n][d] + F_old[n][d]) * dt / 2.;
+        }
+    }
+
 }
 
 void initialize_config() {
@@ -235,22 +244,27 @@ int main(int argc, char* argv[]){
 
     dsfmt_seed(time(NULL));
 
-    //write_data(0);
+    std::cout << "\nStart initializing ";
     initialize_config();
-    std::cout << "\nInitializing configuration done";
-    write_data(98,v);
+    std::cout << "\nInitializing configuration done\nStarting to update forces (first time)";
     update_forces();
-    std::cout << "\nUpdating forces done (first time)";
-    write_data(99,F);
+    std::cout << "\nUpdating forces done" << std::flush;
 
     double time=0;
-    while(time<sim_time){
-        std::cout << "\ntime = " << time;
+    int step = 0;
+    while(time<sim_time)
+    {
         update_kinematics();
-        write_data(time+100,F);
-        write_data(time+1000,v);
-        write_data(time,r);
+
+        if ((step%output_steps) == 0 && step > min_output_steps )
+        {
+            std::cout << "\ntime = " << time;
+            std::cout << "\nPotential Energy = " << PotE;
+            write_data(time,r,'r');
+        }
+
         time+=dt;
+        step++;
     }
 
 
