@@ -227,9 +227,7 @@ void initialize_config() {
         for (int n = 0; n < n_particles; n++){
             v[n][d]=(v[n][d]-sumv/double(n_particles))*fs;
         }
-
     }
-
 }
 
 int main(int argc, char* argv[]){

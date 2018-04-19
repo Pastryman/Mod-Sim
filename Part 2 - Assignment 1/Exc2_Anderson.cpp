@@ -29,17 +29,13 @@ const bool debug = 0;
 
 
 /* Initialization variables */
-const int mc_steps = 200000;
 int output_steps = 10;
-int min_output_steps = 100;
-const double packing_fraction = 0.2; //0.7
+const double packing_fraction = 0.3; //0.7
 const double diameter = 1.0;
 const double dt = 0.001;
-const int maxMeasure = 500;
-const double sim_time = 1000;
 
 /* Temperature variables */
-const double temp = 100;            // kT of the system
+const double temp = 2;            // kT of the system
 double kT;                          // Global, used to calculate kinetic temperature of system
 const double freq = 0.5;            // freq*∆t the frequency of stochastic collisions which determines the coupling strength to the heat bath
 const bool NVT = true;              // NVT=True, NVE=False
@@ -50,7 +46,7 @@ const double betaP = 5;
 const char* init_filename = "fcc.dat";
 const double rcut = 2.5;
 double ecut;
-bool liquid = 1;
+float v0_v;
 
 
 
@@ -60,6 +56,7 @@ double radius;
 double particle_volume;
 float r[N][NDIM];
 float v[N][NDIM];
+float v_initial[N][NDIM];
 float F[N][NDIM];
 float F_old[N][NDIM];
 double box[NDIM];
@@ -215,10 +212,13 @@ void update_kinematics(){
 
     kT=0;
     KinE=0;
+    v0_v = 0;
     for(int n = 0; n < n_particles; ++n) {
         for (int d = 0; d < NDIM; ++d) {
             v[n][d] = v[n][d] + (F[n][d] + F_old[n][d]) * dt / 2.;
             KinE+=v[n][d]*v[n][d];
+
+            v0_v += v[n][d]*v_initial[n][d]/float(n_particles);
         }
     }
 
@@ -300,24 +300,43 @@ int main(int argc, char* argv[]){
     int step = 0;
     double TotE=0;
 
-    while(time<sim_time)
+    char buffer[128];
+    sprintf(buffer, "system_info_pf%.2f_T%.2f.dat", packing_fraction, temp);
+    FILE* fp = fopen(buffer, "w");
+    fprintf(fp, "#Time \t PotE \t KinE \t TotE \t kT \t v0_v");
+
+    bool measuring = false;
+    bool stopMeasure = false;
+    while(!stopMeasure)
     {
 
         update_kinematics();
 
         TotE=KinE+PotE;
 
-        if ((step%output_steps) == 0 && step > min_output_steps )
+        // Determine v(0),  for the v-v autocorrelation
+        if (kT < temp && !measuring)
         {
+            for (int d = 0; d < NDIM; d++){
+                for (int n = 0; n < n_particles; n++) {
+                    v_initial[n][d] = v[n][d];
+                }
+            }
+            measuring = true;
+            std::cout << "\nMeasurements have started!!!";
+        }
 
-            printf("\nTime = %.4f \t PotE = %.2f \t KinE = %.2f \t TotE = %.2f \t kT = %.4f",time,PotE,KinE,TotE,kT);
-            //std::cout << "\nTime = " << time << "" << "PotE = " << PotE;
-            //write_data(time,r,'r');
-
+        if ((step%output_steps) == 0)
+        {
+            printf("\nTime = %.4f \t PotE = %.2f \t KinE = %.2f \t TotE = %.2f \t kT = %.4f \t v0_v = %lf",time,PotE,KinE,TotE,kT, v0_v);
+            if (measuring) {
+                fprintf(fp, "\n %.4f \t %.2f \t %.2f \t %.2f \t %.4f \t %lf", time, PotE, KinE, TotE, kT,
+                                v0_v);
+                if (v0_v<0.001){stopMeasure = true;}
+                }
         }
         time+=dt;
         step++;
-
     }
 
     return 0;
