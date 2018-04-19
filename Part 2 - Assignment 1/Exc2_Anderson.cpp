@@ -34,14 +34,16 @@ int output_steps = 10;
 int min_output_steps = 100;
 const double packing_fraction = 0.2; //0.7
 const double diameter = 1.0;
-const double dt = 0.0001;
+const double dt = 0.001;
 const int maxMeasure = 500;
 const double sim_time = 1000;
 
 /* Temperature variables */
-const double temp = 1;              // kT of the system
+const double temp = 100;            // kT of the system
 double kT;                          // Global, used to calculate kinetic temperature of system
 const double freq = 0.5;            // freq*∆t the frequency of stochastic collisions which determines the coupling strength to the heat bath
+const bool NVT = true;              // NVT=True, NVE=False
+
 
 /* Reduced pressure \beta P */
 const double betaP = 5;
@@ -224,12 +226,14 @@ void update_kinematics(){
     KinE=KinE/2.0;
 
     // The Andersen Thermostat
-    double sigma = sqrt(temp);
-    for(int n = 0; n < n_particles; ++n) {
-        if(freq*dt>dsfmt_genrand()){
-            for (int d = 0; d < NDIM; ++d) {
-                double v_temp = gaussian_rand(0,sigma); // Gaussian Distribution w/o N=1/(sigma*sqrt(2*M_PI))
-                v[n][d] = float(v_temp);
+    if(NVT){
+        double sigma = sqrt(temp);
+        for(int n = 0; n < n_particles; ++n) {
+            if(freq*dt>dsfmt_genrand()){
+                for (int d = 0; d < NDIM; ++d) {
+                    double v_temp = sigma*gaussian_rand(); // Gaussian Distribution
+                    v[n][d] = float(v_temp);
+                }
             }
         }
     }
@@ -308,7 +312,8 @@ int main(int argc, char* argv[]){
 
             printf("\nTime = %.4f \t PotE = %.2f \t KinE = %.2f \t TotE = %.2f \t kT = %.4f",time,PotE,KinE,TotE,kT);
             //std::cout << "\nTime = " << time << "" << "PotE = " << PotE;
-            write_data(time,r,'r');
+            //write_data(time,r,'r');
+
         }
         time+=dt;
         step++;
