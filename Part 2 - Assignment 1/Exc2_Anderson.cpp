@@ -29,15 +29,16 @@ const bool debug = 0;
 
 
 /* Initialization variables */
-int output_steps = 10;
-const double packing_fraction = 0.3; //0.7
+int output_steps = 5;
+const double packing_fraction = 0.6; //0.7
 const double diameter = 1.0;
 const double dt = 0.001;
+const int measurements = 500;
 
 /* Temperature variables */
-const double temp = 2;            // kT of the system
+const double temp = 2.;            // kT of the system
 double kT;                          // Global, used to calculate kinetic temperature of system
-const double freq = 0.5;            // freq*∆t the frequency of stochastic collisions which determines the coupling strength to the heat bath
+const double freq = 100.;            // freq*∆t the frequency of stochastic collisions which determines the coupling strength to the heat bath
 const bool NVT = true;              // NVT=True, NVE=False
 
 
@@ -46,8 +47,7 @@ const double betaP = 5;
 const char* init_filename = "fcc.dat";
 const double rcut = 2.5;
 double ecut;
-float v0_v;
-
+float vsum[3];
 
 
 /* Simulation variables */
@@ -212,18 +212,19 @@ void update_kinematics(){
 
     kT=0;
     KinE=0;
-    v0_v = 0;
     for(int n = 0; n < n_particles; ++n) {
         for (int d = 0; d < NDIM; ++d) {
             v[n][d] = v[n][d] + (F[n][d] + F_old[n][d]) * dt / 2.;
             KinE+=v[n][d]*v[n][d];
-
-            v0_v += v[n][d]*v_initial[n][d]/float(n_particles);
         }
     }
 
     kT=KinE/(NDIM*n_particles);
     KinE=KinE/2.0;
+    vsum[0] = 0;
+    vsum[1] = 0;
+    vsum[2] = 0;
+
 
     // The Andersen Thermostat
     if(NVT){
@@ -234,6 +235,9 @@ void update_kinematics(){
                     double v_temp = sigma*gaussian_rand(); // Gaussian Distribution
                     v[n][d] = float(v_temp);
                 }
+            }
+            for (int d = 0; d<NDIM; d++){
+                vsum[d]+=v[n][d]/n_particles;
             }
         }
     }
@@ -303,11 +307,12 @@ int main(int argc, char* argv[]){
     char buffer[128];
     sprintf(buffer, "system_info_pf%.2f_T%.2f.dat", packing_fraction, temp);
     FILE* fp = fopen(buffer, "w");
-    fprintf(fp, "#Time \t PotE \t KinE \t TotE \t kT \t v0_v");
+    fprintf(fp, "#Time \t PotE \t kT \t vx \t vy \t vz");
 
     bool measuring = false;
     bool stopMeasure = false;
-    while(!stopMeasure)
+    int current_measurements = 0;
+    while(current_measurements < measurements)
     {
 
         update_kinematics();
@@ -317,22 +322,17 @@ int main(int argc, char* argv[]){
         // Determine v(0),  for the v-v autocorrelation
         if (kT < temp && !measuring)
         {
-            for (int d = 0; d < NDIM; d++){
-                for (int n = 0; n < n_particles; n++) {
-                    v_initial[n][d] = v[n][d];
-                }
-            }
             measuring = true;
             std::cout << "\nMeasurements have started!!!";
+            double time_start = time;
         }
 
         if ((step%output_steps) == 0)
         {
-            printf("\nTime = %.4f \t PotE = %.2f \t KinE = %.2f \t TotE = %.2f \t kT = %.4f \t v0_v = %lf",time,PotE,KinE,TotE,kT, v0_v);
+            printf("\nTime = %.4f \t PotE = %.2f \t kT = %.4f \t vx = %lf \t vy = %lf \t vz = %lf",time,PotE,kT, vsum[0],vsum[1],vsum[2]);
             if (measuring) {
-                fprintf(fp, "\n %.4f \t %.2f \t %.2f \t %.2f \t %.4f \t %lf", time, PotE, KinE, TotE, kT,
-                                v0_v);
-                if (v0_v<0.001){stopMeasure = true;}
+                fprintf(fp, "\nTime = %.4f \t PotE = %.2f \t kT = %.4f \t vx = %lf \t vy = %lf \t vz = %lf",time,PotE,kT, vsum[0],vsum[1],vsum[2]);
+                current_measurements++;
                 }
         }
         time+=dt;
