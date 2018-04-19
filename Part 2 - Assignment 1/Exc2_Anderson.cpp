@@ -6,6 +6,7 @@
 #include <iostream>
 #include <fstream>
 #include <random>
+#include "gauss.h"
 #include <algorithm>
 #include <chrono>  // for high_resolution_clock
 
@@ -227,7 +228,7 @@ void update_kinematics(){
     for(int n = 0; n < n_particles; ++n) {
         if(freq*dt>dsfmt_genrand()){
             for (int d = 0; d < NDIM; ++d) {
-                double v_temp = exp(-0.5*pow(v[n][d]/sigma,2.0)); // Gaussian Distribution w/o N=1/(sigma*sqrt(2*M_PI))
+                double v_temp = gaussian_rand(0,sigma); // Gaussian Distribution w/o N=1/(sigma*sqrt(2*M_PI))
                 v[n][d] = float(v_temp);
             }
         }
