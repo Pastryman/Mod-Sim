@@ -19,7 +19,7 @@ using namespace std;
 
 #define NDIM 3
 #define N 1000
-
+#define measurements 400
 
 //GIT TEST
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -27,20 +27,23 @@ using namespace std;
 const bool debug = 0;
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+//rhosigma^3 = 1
+//(pi/6)*1.2= pf = 0.63
 
+// google lennard jones phase diagram
 /* Initialization variables */
 int output_console_steps = 10;
 int output_steps = 1;
-int mc_steps = 2000;
 int initialize_steps = 30000;
-const double packing_fraction = 0.1;
+const double packing_fraction = 0.6; //0.7
 const double diameter = 1.0;
 const double dt = 0.001;
+
 
 /* Temperature variables */
 const double temp = 2.;            // kT of the system
 double kT;                          // Global, used to calculate kinetic temperature of system
-const double freq = 10000.;            // freq*∆t the frequency of stochastic collisions which determines the coupling strength to the heat bath
+const double freq = 100.;            // freq*∆t the frequency of stochastic collisions which determines the coupling strength to the heat bath
 const bool NVT = true;              // NVT=True, NVE=False
 
 
@@ -49,7 +52,7 @@ const double betaP = 5;
 const char* init_filename = "fcc.dat";
 const double rcut = 2.5;
 double ecut;
-
+float vsum[3];
 
 
 /* Simulation variables */
@@ -58,6 +61,7 @@ double radius;
 double particle_volume;
 float r[N][NDIM];
 float v[N][NDIM];
+float v_t[N][NDIM][measurements];
 float F[N][NDIM];
 float F_old[N][NDIM];
 double box[NDIM];
@@ -138,7 +142,6 @@ void set_packing_fraction(void){
     std::cout<<"\nold system volume = " <<volume << "\n";
 
     double target_volume = (n_particles * particle_volume) / packing_fraction;
-    printf("volume = %lf\n", target_volume);
     double scale_factor = pow(target_volume / volume, 1.0 / NDIM);
 
     for(n = 0; n < n_particles; ++n){
@@ -146,7 +149,6 @@ void set_packing_fraction(void){
     }
     for(d = 0; d < NDIM; ++d) box[d] *= scale_factor;
 
-    printf("\nNew box dimensions: %.2f,%.2f,%.2f",box[0],box[1],box[2]);
 }
 
 void update_forces(){
@@ -224,6 +226,10 @@ void update_kinematics(){
 
     kT=KinE/(NDIM*n_particles);
     KinE=KinE/2.0;
+    vsum[0] = 0;
+    vsum[1] = 0;
+    vsum[2] = 0;
+
 
     // The Andersen Thermostat
     if(NVT){
@@ -254,7 +260,7 @@ void initialize_config() {
             sumv2 += v_temp*v_temp;
         }
         sumv2/=n_particles;
-        float fs = sqrt(temp/sumv2);
+        float fs = sqrt(3.*temp/sumv2);
         //Total momentum (in each dimension) must be zero
         for (int n = 0; n < n_particles; n++){
             v[n][d]=(v[n][d]-sumv/double(n_particles))*fs;
@@ -296,48 +302,65 @@ int main(int argc, char* argv[]){
     update_forces();
     std::cout << "\nUpdating forces done";
 
+    bool measuring = false;
+    int current_measurements = 0;
     double time=0;
     int step = 0;
     double TotE=0;
-
-    char buffer[128];
-    if (NVT) {
-                sprintf(buffer, "system_info_NVT_pf%.2f_T%.2f.dat", packing_fraction, temp);
-        }
-    else {
-        sprintf(buffer, "system_info_NVE_pf%.2f_T%.2f.dat", packing_fraction, temp);
-    }
-
-    FILE* fp = fopen(buffer, "w");
-    fprintf(fp, "#Time \t PotE \t KinE \t TotE \t kT");
-
-    bool measuring = false;
-    int nr_of_measurements = 0;
-
-    while(nr_of_measurements<mc_steps)
+    double start_time;
+    while(current_measurements < measurements)
     {
-
+        // Update the kinematics (the actual work)
         update_kinematics();
-
+        // Calculate the total energy
         TotE=KinE+PotE;
-
+        // After some steps, we will start measuring
         if (step == initialize_steps)
         {
             measuring = true;
             std::cout << "\nMeasurements have started!!!";
         }
 
+        if ((step%output_steps) == 0 && measuring) {
+            for (int n = 0; n < n_particles; ++n) {
+                for (int dim = 0; dim < NDIM; ++dim) {
+                    v_t[n][dim][current_measurements] = v[n][dim];
+                }
+            }
+            current_measurements++;
+        }
+
         if ((step%output_console_steps) == 0) {
             printf("\nTime = %.4f \t PotE = %.2f \t KinE = %.2f \t TotE = %.2f \t kT = %.4f", time, PotE,
                    KinE, TotE, kT);
         }
-        if ((step%output_steps)==0 && measuring) {
-            fprintf(fp, "\n %.4f \t %.2f \t %.2f \t %.2f \t %.4f \t %lf", time, PotE, KinE, TotE, kT);
-            nr_of_measurements++;
-        }
 
         time+=dt;
         step++;
+    }
+
+    char buffer[128];
+    sprintf(buffer, "v(0)v(t)_pf%.3f_T%.2f.dat", packing_fraction, temp);
+    FILE* fp = fopen(buffer, "w");
+    fprintf(fp, "#packing_fraction = %.2f",packing_fraction);
+    fprintf(fp, "\n#temperature = %.2f",temp);
+    fprintf(fp, "\n#dt = %lf",dt);
+    fprintf(fp, "\n#measurements = %i",measurements);
+
+    float v0_vt;
+
+    for (int dt_step = 1; dt_step <= measurements - 100; ++dt_step) {
+        v0_vt = 0;
+        for (int t0 = 0; t0 < measurements - dt; ++t0) {
+            for (int dim = 0; dim < NDIM; ++dim) {
+                for (int n = 0; n < n_particles; ++n) {
+                    v0_vt += v_t[n][dim][t0]*v_t[n][dim][t0+dt_step];
+                }
+            }
+        }
+        v0_vt = v0_vt/(n_particles*(measurements-dt_step));
+        printf("\n%lf \t %lf",v0_vt, dt_step*dt);
+        fprintf(fp,"\n%lf \t %lf",v0_vt, dt_step*dt);
     }
 
     return 0;
