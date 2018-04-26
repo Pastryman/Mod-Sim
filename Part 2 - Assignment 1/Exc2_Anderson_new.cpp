@@ -27,10 +27,10 @@ using namespace std;
 const bool debug = 0;
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-//rhosigma^3 = 1
-//(pi/6)*1.2= pf = 0.63
-
+//  rhosigma^3 = 1
+//  (pi/6)*1.2= pf = 0.63
 // google lennard jones phase diagram
+
 /* Initialization variables */
 int output_console_steps = 10;
 int output_steps = 1;
@@ -41,18 +41,16 @@ const double dt = 0.001;
 
 
 /* Temperature variables */
-const double temp = 2.;            // kT of the system
-double kT;                          // Global, used to calculate kinetic temperature of system
-const double freq = 100.;            // freq*∆t the frequency of stochastic collisions which determines the coupling strength to the heat bath
-const bool NVT = true;              // NVT=True, NVE=False
-
+const double temp = 2.;                     // kT of the system
+double kT;                                  // Global, used to calculate kinetic temperature of system
+const double freq = 100.;                   // freq*∆t=0.1, the frequency collisions,determines the strength to the heat bath
+const bool NVT = true;                      // NVT=True, NVE=False
 
 /* Reduced pressure \beta P */
 const double betaP = 5;
 const char* init_filename = "fcc.dat";
 const double rcut = 2.5;
 double ecut;
-float vsum[3];
 
 
 /* Simulation variables */
@@ -169,16 +167,22 @@ void update_forces(){
             for (int d = 0; d<NDIM; d++) {
                 // Distance between particles
                 dist[d] = r[i][d] - r[j][d];
+
+                // Nearest image convention
                 if(dist[d]>0.5*box[d]){
                     dist[d] = -(box[d]-dist[d]);
                 }
                 if(dist[d]< -(0.5*box[d])){
                     dist[d] = box[d]+dist[d];
                 }
+
+                // Squared distance
                 dist2 += dist[d]*dist[d];
             }
 
+            // Cut off distance
             if (dist2 < rcut*rcut){
+
                 // Calculate the force on the particles using the LJ potential
                 double r2i=1/dist2;
                 double r6i=pow(r2i,3.);
@@ -197,14 +201,23 @@ void update_forces(){
 }
 
 void update_kinematics(){
+    // Velocity Verlet intergration
 
     // Update positions r(t)->r(t+dt)
     for(int n = 0; n < n_particles; ++n){
         for(int d = 0; d < NDIM; ++d){
+
+            // Calculating new position
             double r_new = r[n][d] + v[n][d]*dt + F[n][d]*dt*dt/(2.);
+
+            // Nearest image convention (modulus)
             if (r_new<0) {r_new = box[d]-fmod(-r_new,box[d]);}
             if (r_new>box[d]) {r_new = fmod(r_new,box[d]);}
+
+            // r(t)->r(t+dt)
             r[n][d] = float(r_new);
+
+            // Save old force for calculating velocity
             F_old[n][d] = F[n][d];
         }
     }
@@ -213,23 +226,24 @@ void update_kinematics(){
     update_forces();
 
     // Update velocities v(t)->v(t+dt)
-    // Calculating temperature: Ekin=(1/2)*m*Σv^2=(3/2)*N*kT // 3 in 3D
+    // Calculating temperature: Ekin=(1/2)*m*Σv^2=(d/2)*N*kT // d=3 in 3D
 
-    kT=0;
-    KinE=0;
+    kT=0;               // Temperature from kinetic energy
+    KinE=0;             // Initilize kinetic energy
+
     for(int n = 0; n < n_particles; ++n) {
         for (int d = 0; d < NDIM; ++d) {
+
+            // Update velocity v(t)->v(t+dt)
             v[n][d] = v[n][d] + (F[n][d] + F_old[n][d]) * dt / 2.;
+
+            // Ekin=(1/2)*m*Σv^2
             KinE+=v[n][d]*v[n][d];
         }
     }
 
     kT=KinE/(NDIM*n_particles);
     KinE=KinE/2.0;
-    vsum[0] = 0;
-    vsum[1] = 0;
-    vsum[2] = 0;
-
 
     // The Andersen Thermostat
     if(NVT){
@@ -247,6 +261,11 @@ void update_kinematics(){
 }
 
 void initialize_config() {
+    // Giving initial velocity to the particles
+    // Conditions:
+    // - Total momentum = 0
+    // - Ekin=(1/2)*m*Σv^2=(d/2)*N*kT // d=3 in 3D
+
     float sumv = 0;
     float sumv2 = 0;
 
@@ -254,13 +273,17 @@ void initialize_config() {
         sumv = 0;
         for (int n = 0; n < n_particles; n++)
         {
+            // Giving velocity from [-1,1]
             float v_temp = dsfmt_genrand()*2.-1.;
             v[n][d] = v_temp;
             sumv += v_temp;
             sumv2 += v_temp*v_temp;
         }
         sumv2/=n_particles;
+
+        // Total energy corresponds to temperature
         float fs = sqrt(3.*temp/sumv2);
+
         //Total momentum (in each dimension) must be zero
         for (int n = 0; n < n_particles; n++){
             v[n][d]=(v[n][d]-sumv/double(n_particles))*fs;
@@ -271,8 +294,9 @@ void initialize_config() {
 }
 
 int main(int argc, char* argv[]){
-    std::cout << "\nBetaP = " << betaP << "\n";
+    dsfmt_seed(time(NULL));
 
+    // Radius particle
     radius = 0.5 * diameter;
 
     if(NDIM == 3) particle_volume = M_PI * pow(diameter, 3.0) / 6.0;
@@ -282,19 +306,18 @@ int main(int argc, char* argv[]){
         return 0;
     }
 
+    // Initializing configuration
     read_data();
-
     if(n_particles == 0){
         printf("Error: Number of particles, n_particles = 0.\n");
         return 0;
     }
-
-    ecut = 4.*(pow(rcut,-12.)-pow(rcut,-6.));
-
     set_packing_fraction();
 
-    dsfmt_seed(time(NULL));
+    // Calculate cut off distance, potential is zero at this distance
+    ecut = 4.*(pow(rcut,-12.)-pow(rcut,-6.));
 
+    // Initializing configuration, for first step
     std::cout << "\nStart initializing ";
     std::cout << "\nNumber of particles = " << n_particles;
     initialize_config();
@@ -302,18 +325,22 @@ int main(int argc, char* argv[]){
     update_forces();
     std::cout << "\nUpdating forces done";
 
+    // Initializing local variables for measuring
     bool measuring = false;
     int current_measurements = 0;
     double time=0;
     int step = 0;
     double TotE=0;
     double start_time;
+
     while(current_measurements < measurements)
     {
         // Update the kinematics (the actual work)
         update_kinematics();
+
         // Calculate the total energy
         TotE=KinE+PotE;
+
         // After some steps, we will start measuring
         if (step == initialize_steps)
         {
@@ -321,6 +348,7 @@ int main(int argc, char* argv[]){
             std::cout << "\nMeasurements have started!!!";
         }
 
+        // Outputting velocity-velocity autocorrelation
         if ((step%output_steps) == 0 && measuring) {
             for (int n = 0; n < n_particles; ++n) {
                 for (int dim = 0; dim < NDIM; ++dim) {
@@ -339,6 +367,7 @@ int main(int argc, char* argv[]){
         step++;
     }
 
+    // Initializing .dat file
     char buffer[128];
     sprintf(buffer, "v(0)v(t)_pf%.3f_T%.2f.dat", packing_fraction, temp);
     FILE* fp = fopen(buffer, "w");
@@ -349,6 +378,7 @@ int main(int argc, char* argv[]){
 
     float v0_vt;
 
+    // Export velocity-velocity autocorrelation
     for (int dt_step = 1; dt_step <= measurements - 100; ++dt_step) {
         v0_vt = 0;
         for (int t0 = 0; t0 < measurements - dt; ++t0) {

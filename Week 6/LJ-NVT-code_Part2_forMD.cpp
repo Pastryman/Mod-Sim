@@ -14,17 +14,17 @@
 #define NTEST 1000
 
 /* Initialization variables */
-const int    mc_steps      = 2000;
-const int    output_steps  = 10;
-double density              = 1.1; //0.1tm0.5 done
+const int    mc_steps         = 2000;
+const int    output_steps     = 10;
+double       density          = 1.1; //0.1tm0.5 done
 
 const double packing_fraction = 0.1;
-const double diameter = 1.0;
+const double diameter         = 1.0;
 
-double delta               = 2.0;
-const double r_cut         = 2.5;
-const double beta          = 0.5; // 1/2,1,2
-const char*  init_filename = "fcc864.dat";
+double delta                  = 2.0;
+const double r_cut            = 2.5;
+const double beta             = 0.5; // 1/2,1,2
+const char*  init_filename    = "fcc864.dat";
 
 /* Simulation variables */
 int n_particles = 0;

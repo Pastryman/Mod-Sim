@@ -38,11 +38,10 @@ const double diameter = 1.0;
 const double dt = 0.001;
 
 /* Temperature variables */
-const double temp = 2.;            // kT of the system
-double kT;                          // Global, used to calculate kinetic temperature of system
-const double freq = 10000.;            // freq*∆t the frequency of stochastic collisions which determines the coupling strength to the heat bath
-const bool NVT = true;              // NVT=True, NVE=False
-
+const double temp = 2.;                     // kT of the system
+double kT;                                  // Global, used to calculate kinetic temperature of system
+const double freq = 100.;                   // freq*∆t=0.1, the frequency collisions,determines the strength to the heat bath
+const bool NVT = true;                      // NVT=True, NVE=False
 
 /* Reduced pressure \beta P */
 const double betaP = 5;
@@ -167,16 +166,22 @@ void update_forces(){
             for (int d = 0; d<NDIM; d++) {
                 // Distance between particles
                 dist[d] = r[i][d] - r[j][d];
+
+                // Nearest image convention
                 if(dist[d]>0.5*box[d]){
                     dist[d] = -(box[d]-dist[d]);
                 }
                 if(dist[d]< -(0.5*box[d])){
                     dist[d] = box[d]+dist[d];
                 }
+
+                // Squared distance
                 dist2 += dist[d]*dist[d];
             }
 
+            // Cut off distance
             if (dist2 < rcut*rcut){
+
                 // Calculate the force on the particles using the LJ potential
                 double r2i=1/dist2;
                 double r6i=pow(r2i,3.);
@@ -195,14 +200,23 @@ void update_forces(){
 }
 
 void update_kinematics(){
+    // Velocity Verlet intergration
 
     // Update positions r(t)->r(t+dt)
     for(int n = 0; n < n_particles; ++n){
         for(int d = 0; d < NDIM; ++d){
+
+            // Calculating new position
             double r_new = r[n][d] + v[n][d]*dt + F[n][d]*dt*dt/(2.);
+
+            // Nearest image convention (modulus)
             if (r_new<0) {r_new = box[d]-fmod(-r_new,box[d]);}
             if (r_new>box[d]) {r_new = fmod(r_new,box[d]);}
+
+            // r(t)->r(t+dt)
             r[n][d] = float(r_new);
+
+            // Save old force for calculating velocity
             F_old[n][d] = F[n][d];
         }
     }
@@ -211,13 +225,18 @@ void update_kinematics(){
     update_forces();
 
     // Update velocities v(t)->v(t+dt)
-    // Calculating temperature: Ekin=(1/2)*m*Σv^2=(3/2)*N*kT // 3 in 3D
+    // Calculating temperature: Ekin=(1/2)*m*Σv^2=(d/2)*N*kT // d=3 in 3D
 
-    kT=0;
-    KinE=0;
+    kT=0;               // Temperature from kinetic energy
+    KinE=0;             // Initilize kinetic energy
+
     for(int n = 0; n < n_particles; ++n) {
         for (int d = 0; d < NDIM; ++d) {
+
+            // Update velocity v(t)->v(t+dt)
             v[n][d] = v[n][d] + (F[n][d] + F_old[n][d]) * dt / 2.;
+
+            // Ekin=(1/2)*m*Σv^2
             KinE+=v[n][d]*v[n][d];
         }
     }
@@ -241,6 +260,11 @@ void update_kinematics(){
 }
 
 void initialize_config() {
+    // Giving initial velocity to the particles
+    // Conditions:
+    // - Total momentum = 0
+    // - Ekin=(1/2)*m*Σv^2=(d/2)*N*kT // d=3 in 3D
+
     float sumv = 0;
     float sumv2 = 0;
 
@@ -248,13 +272,17 @@ void initialize_config() {
         sumv = 0;
         for (int n = 0; n < n_particles; n++)
         {
+            // Giving velocity from [-1,1]
             float v_temp = dsfmt_genrand()*2.-1.;
             v[n][d] = v_temp;
             sumv += v_temp;
             sumv2 += v_temp*v_temp;
         }
         sumv2/=n_particles;
-        float fs = sqrt(temp/sumv2);
+
+        // Total energy corresponds to temperature
+        float fs = sqrt(3.*temp/sumv2);
+
         //Total momentum (in each dimension) must be zero
         for (int n = 0; n < n_particles; n++){
             v[n][d]=(v[n][d]-sumv/double(n_particles))*fs;
@@ -265,8 +293,9 @@ void initialize_config() {
 }
 
 int main(int argc, char* argv[]){
-    std::cout << "\nBetaP = " << betaP << "\n";
+    dsfmt_seed(time(NULL));
 
+    // Radius particle
     radius = 0.5 * diameter;
 
     if(NDIM == 3) particle_volume = M_PI * pow(diameter, 3.0) / 6.0;
@@ -276,19 +305,18 @@ int main(int argc, char* argv[]){
         return 0;
     }
 
+    // Initializing configuration
     read_data();
-
     if(n_particles == 0){
         printf("Error: Number of particles, n_particles = 0.\n");
         return 0;
     }
-
-    ecut = 4.*(pow(rcut,-12.)-pow(rcut,-6.));
-
     set_packing_fraction();
 
-    dsfmt_seed(time(NULL));
+    // Calculate cut off distance, potential is zero at this distance
+    ecut = 4.*(pow(rcut,-12.)-pow(rcut,-6.));
 
+    // Initializing configuration, for first step
     std::cout << "\nStart initializing ";
     std::cout << "\nNumber of particles = " << n_particles;
     initialize_config();
@@ -296,10 +324,14 @@ int main(int argc, char* argv[]){
     update_forces();
     std::cout << "\nUpdating forces done";
 
+    // Initializing local variables for measuring
     double time=0;
     int step = 0;
     double TotE=0;
+    bool measuring = false;
+    int nr_of_measurements = 0;
 
+    // Initializing .dat file
     char buffer[128];
     if (NVT) {
                 sprintf(buffer, "system_info_NVT_pf%.2f_T%.2f.dat", packing_fraction, temp);
@@ -307,30 +339,31 @@ int main(int argc, char* argv[]){
     else {
         sprintf(buffer, "system_info_NVE_pf%.2f_T%.2f.dat", packing_fraction, temp);
     }
-
     FILE* fp = fopen(buffer, "w");
     fprintf(fp, "#Time \t PotE \t KinE \t TotE \t kT");
 
-    bool measuring = false;
-    int nr_of_measurements = 0;
-
     while(nr_of_measurements<mc_steps)
     {
-
+        // Update the kinematics (the actual work)
         update_kinematics();
 
+        // Calculate the total energy
         TotE=KinE+PotE;
 
+        // After some steps, we will start measuring
         if (step == initialize_steps)
         {
             measuring = true;
             std::cout << "\nMeasurements have started!!!";
         }
 
+        // Outputting energies and temperature
         if ((step%output_console_steps) == 0) {
             printf("\nTime = %.4f \t PotE = %.2f \t KinE = %.2f \t TotE = %.2f \t kT = %.4f", time, PotE,
                    KinE, TotE, kT);
         }
+
+        // Exporting energies and temperature
         if ((step%output_steps)==0 && measuring) {
             fprintf(fp, "\n %.4f \t %.2f \t %.2f \t %.2f \t %.4f \t %lf", time, PotE, KinE, TotE, kT);
             nr_of_measurements++;
