@@ -13,13 +13,17 @@
 
 
 // Simulation Parameters
-int output_data_steps = 100;    // Write data to file and console
+int output_data_steps = 50;    // Write data to file and console
+int output_console_steps = 50;
 int measurements = 1000;        // Amount of measurements we want to do
-int initialize_steps = 100000;  // Amount of steps until we start measuring
+int initialize_steps = 1000;  // Amount of steps until we start measuring
 
 // Physical Parameters
 int J = 1; // J>0: prefers alignment J<0: prefers anti alignment
-double Beta = 1000.;
+double Beta;
+double Beta_i = 0.160;
+double Beta_f = 0.200;
+double dBeta = 0.005;
 
 
 
@@ -92,7 +96,7 @@ void initialize_lattice(bool random = false) {
     if (!random) {
         for (int i = 0; i < N; ++i) {
             for (int j = 0; j < N; ++j) {
-                lattice[i][j]=-1;
+                lattice[i][j]=1;
             }
         }
     }
@@ -120,11 +124,10 @@ int attempt_flip(){
 
     // The change in energy
     int dH = -2*hamiltonian_one(x, y);
-    // The move if...
+    // Accept the move if MC condition is met
     if(dsfmt_genrand()<exp(-Beta*dH)){
         lattice[x][y]*=-1;
         H+=dH;
-        //std::cout<<"\nmove is accepted!";
         return 1;
     }
     return 0;
@@ -141,39 +144,39 @@ int main() {
 
 
     initialize_lattice();
+    magnetization();
     printf("\nInitial: \t E=%d \t m = %lf", H, m);
 
-    printf("Initializing done!");
+    printf("\nInitializing done!\n");
 
 
+    for (double b = Beta_i; b < Beta_f; b+=dBeta) {
+        Beta = b;
+        // Initialize output file
+        char buffer[128];
+        sprintf(buffer, "IsingModel1_Beta_%.8f.dat", Beta);
+        FILE *fp = fopen(buffer, "w");
+        fprintf(fp, "#Step \t Magnetization \t Energy");
 
-//    magnetization();
-//    hamiltonian();
-//    std::cout<<"\nHone = "<< -2*hamiltonian_one(0,0);
-//    std::cout<<"\nH = "<<H;
-//
-//    magnetization();
-//    hamiltonian();
-//    std::cout<<"\nHone = "<< -2*hamiltonian_one(0,0);
-//    std::cout<<"\nH = "<<H;
+        int meas = 0;
+        int step = 0;
+        while (meas<measurements) {
+            MC_sweep();
 
-    for (int i = 0; i < 100; ++i) {
-        if(attempt_flip()){
-            magnetization();
-            std::cout<<"\nH = "<<H;
-            std::cout<<"\nm = "<<m;
+            if (step % output_data_steps == 0) {
+                magnetization();
+                fprintf(fp, "\n %d \t %lf \t %d", step, m, H);
+                meas++;
+            }
+
+            if (step % output_console_steps ==0){
+                printf("\nstep = %d \t m = %lf \t E = %d", step, m, H);
+
+            }
+            step++;
         }
+
+        fclose(fp);
     }
-
-    for (int step = 0; step < initialize_steps + measurements; ++step) {
-        MC_sweep();
-
-        if(step%output_data_steps==0){
-            magnetization();
-            //hamiltonian();
-            printf("\nstep = %d \t E=%d \t m = %lf",step, H, m);
-        }
-    }
-
     return 0;
 }
