@@ -381,7 +381,7 @@ int main(int argc, char* argv[]){
     // Export velocity-velocity autocorrelation
     for (int dt_step = 1; dt_step <= measurements - 100; ++dt_step) {
         v0_vt = 0;
-        for (int t0 = 0; t0 < measurements - dt; ++t0) {
+        for (int t0 = 0; t0 < measurements - dt_step; ++t0) {
             for (int dim = 0; dim < NDIM; ++dim) {
                 for (int n = 0; n < n_particles; ++n) {
                     v0_vt += v_t[n][dim][t0]*v_t[n][dim][t0+dt_step];

@@ -14,15 +14,15 @@
 
 // Simulation Parameters
 int output_data_steps = 50;    // Write data to file and console
-int output_console_steps = 50;
+int output_console_steps = 1;
 int measurements = 1000;        // Amount of measurements we want to do
 int initialize_steps = 1000;  // Amount of steps until we start measuring
 
 // Physical Parameters
 int J = 1; // J>0: prefers alignment J<0: prefers anti alignment
 double T;
-double T_i = 2.0;
-double T_f = 8.0;
+double T_i = 5.3;
+double T_f = 5.3;
 double dT = 0.3;
 
 
@@ -32,6 +32,7 @@ int H; // Hamiltonian
 double m; // Average megnetization
 
 int lattice[N][N];
+int cluster_lattice[N][N];
 
 int H_term(int i, int j, int l,int r,int u,int d){
     // i belongs to u and d
@@ -117,25 +118,60 @@ void magnetization(){
     m=m/double(N*N);
 }
 
-int attempt_flip(){
-    // Perform flip of random particle
-    int x = int(dsfmt_genrand()*N);
-    int y = int(dsfmt_genrand()*N);
+void calc_cluster(int x, int y, bool debug = false){
+    // Get all neighbours of the particle
+    int x_nb[3];
+    int y_nb[3];
+    x_nb[0] = (x + 1)%N; // x-coords neighbour 1
+    y_nb[0] = (y + 1)%N; // y-coords neighbour 1
+    x_nb[1] = x; // x-coords neighbour 2
+    y_nb[1] = y; // y-coords neighbour 2
+    x_nb[2] = x - 1; // x-coords neighbour 3
+    y_nb[2] = y - 1; // y-coords neighbour 3
+    if (x_nb[2]<0) {x_nb[2] = N - 1;} // boundary conds
+    if (y_nb[2]<0) {y_nb[2] = N - 1;} // boundary conds
 
-    // The change in energy
-    int dH = -2*hamiltonian_one(x, y);
-    // Accept the move if MC condition is met
-    if(dsfmt_genrand()<exp(-dH/T)){
-        lattice[x][y]*=-1;
-        H+=dH;
-        return 1;
+    for (int i = 0; i < 3; ++i) {
+        for (int j = 0; j < 3; ++j) {
+            if (i==1 & j==1){ continue;} // don't add self
+            else if (cluster_lattice[x_nb[i]][y_nb[j]] == 1) { continue;} // don't add sites twice
+                // If the neighbour has the same spin, attempt to add it to the cluster
+            else if (lattice[x_nb[i]][y_nb[j]] == lattice[x][y]) {
+                // Calculate the chance to add it
+                double P_add = 1-exp(-2.*double(J)/T);
+                if (dsfmt_genrand() < P_add) {
+                    //Add the nb to the cluster
+                    cluster_lattice[x_nb[i]][y_nb[j]] = 1;
+                    //If we have added it, we want to include the neighbours of the neighbours to the cluster
+                    calc_cluster(x_nb[i],y_nb[j],debug);
+                    if (debug) {
+                        std::cout << "\nsite added to cluster: " << x_nb[i] << "\t" << y_nb[j];
+                    }
+                }
+            }
+        }
     }
-    return 0;
 }
 
-void MC_sweep(){
-    for (int n = 0; n < N * N; ++n) {
-        attempt_flip();
+void attempt_flip_cluster(bool debug = false){
+    for (int k = 0; k < N; ++k) {
+        for (int l = 0; l < N; ++l) {
+            cluster_lattice[k][l]=0;
+        }
+    }
+
+    // Take a particle at random
+    auto x = int(dsfmt_genrand()*N);
+    auto y = int(dsfmt_genrand()*N);
+
+    calc_cluster(x,y,debug);
+
+    for (int i = 0; i < N; ++i) {
+        for (int j = 0; j < N; ++j) {
+            if (cluster_lattice[i][j]){
+                lattice[i][j]*=-1;
+            }
+        }
     }
 }
 
@@ -149,29 +185,27 @@ int main() {
 
     printf("\nInitializing done!\n");
 
+    T = T_i;
 
     for (double b = T_i; b <= T_f; b+=dT) {
         T = b;
         // Initialize output file
         char buffer[128];
-        sprintf(buffer, "IsingModel1_T_%.8f.dat", T);
+        sprintf(buffer, "IsingModel1_Wolff_T_%.8f.dat", T);
         FILE *fp = fopen(buffer, "w");
         fprintf(fp, "#Step \t Magnetization \t Energy");
 
         int meas = 0;
         int step = 0;
         while (meas<measurements) {
-            MC_sweep();
+            attempt_flip_cluster();
 
             if (step % output_data_steps == 0) {
+                hamiltonian();
                 magnetization();
                 fprintf(fp, "\n %d \t %lf \t %d", step, m, H);
-                meas++;
-            }
-
-            if (step % output_console_steps ==0){
                 printf("\nstep = %d \t m = %lf \t E = %d", step, m, H);
-
+                meas++;
             }
             step++;
         }

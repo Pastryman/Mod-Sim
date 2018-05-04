@@ -9,20 +9,20 @@
 #include "mt19937.h"
 
 
-#define N 100
+#define N 100 // Amount of measurements we want to do
+#define measurements 1000 // Amount of measurements we want to do
 
 
 // Simulation Parameters
 int output_data_steps = 50;    // Write data to file and console
 int output_console_steps = 50;
-int measurements = 1000;        // Amount of measurements we want to do
 int initialize_steps = 1000;  // Amount of steps until we start measuring
 
 // Physical Parameters
 int J = 1; // J>0: prefers alignment J<0: prefers anti alignment
 double T;
-double T_i = 2.0;
-double T_f = 8.0;
+double T_i = 5.3;
+double T_f = 5.3;
 double dT = 0.3;
 
 
@@ -30,6 +30,7 @@ double dT = 0.3;
 // Declaration of variables
 int H; // Hamiltonian
 double m; // Average megnetization
+double m_list[measurements];
 
 int lattice[N][N];
 
@@ -109,7 +110,8 @@ void magnetization(){
     // Loop to get the total magnetization
     for (int i = 0; i < N; ++i) {
         for (int j = 0; j < N; ++j) {
-            m+=lattice[i][j];
+            int val = lattice[i][j];
+            m+= val;
         }
     }
 
@@ -119,8 +121,8 @@ void magnetization(){
 
 int attempt_flip(){
     // Perform flip of random particle
-    int x = int(dsfmt_genrand()*N);
-    int y = int(dsfmt_genrand()*N);
+    auto x = int(dsfmt_genrand()*N);
+    auto y = int(dsfmt_genrand()*N);
 
     // The change in energy
     int dH = -2*hamiltonian_one(x, y);
@@ -142,7 +144,6 @@ void MC_sweep(){
 int main() {
     dsfmt_seed(time(NULL));
 
-
     initialize_lattice();
     magnetization();
     printf("\nInitial: \t E=%d \t m = %lf", H, m);
@@ -150,33 +151,43 @@ int main() {
     printf("\nInitializing done!\n");
 
 
-    for (double b = T_i; b <= T_f; b+=dT) {
+    for (double b = T_i; b <= T_f; b += dT) {
         T = b;
-        // Initialize output file
-        char buffer[128];
-        sprintf(buffer, "IsingModel1_T_%.8f.dat", T);
-        FILE *fp = fopen(buffer, "w");
-        fprintf(fp, "#Step \t Magnetization \t Energy");
 
         int meas = 0;
         int step = 0;
-        while (meas<measurements) {
+        while (meas < measurements) {
             MC_sweep();
-
-            if (step % output_data_steps == 0) {
+            if (step > initialize_steps) {
                 magnetization();
-                fprintf(fp, "\n %d \t %lf \t %d", step, m, H);
+                //std::cout << "\nMean Magnetization = " << m;
+                m_list[meas]=m;
                 meas++;
-            }
-
-            if (step % output_console_steps ==0){
-                printf("\nstep = %d \t m = %lf \t E = %d", step, m, H);
-
             }
             step++;
         }
 
+        // Initialize output file
+        char buffer[128];
+        sprintf(buffer, "IsingModel1_Corr_T_%.8f.dat", T);
+        FILE *fp = fopen(buffer, "w");
+        fprintf(fp, "#d_step \t m(0)m(step)");
+
+        // Export <m(0)m(t)> auto-correlation
+        // Loop over all step intervals
+        for (int d_step = 1; d_step <= measurements - 100; ++d_step) {
+            double m0_mt = 0;
+            // Loop over all starting times
+            for (int step0 = 0; step0 < measurements - d_step; ++step0) {
+                // Calculate the m(0)m(t)
+                m0_mt += m_list[step0] * m_list[step0 + d_step];
+            }
+            m0_mt = m0_mt / double(measurements - d_step);
+            printf("\n%d \t %lf", d_step, m0_mt);
+            fprintf(fp, "\n%d \t %lf", d_step, m0_mt);
+        }
         fclose(fp);
     }
     return 0;
 }
+
