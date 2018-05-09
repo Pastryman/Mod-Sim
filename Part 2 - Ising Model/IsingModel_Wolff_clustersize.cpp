@@ -15,8 +15,8 @@
 // Simulation Parameters
 int output_data_steps = 1;    // Write data to file and console
 int output_console_steps = 100;
-int measurements = 10000;        // Amount of measurements we want to do
-int initialize_steps = 1000;  // Amount of steps until we start measuring
+int measurements = 4000;        // Amount of measurements we want to do
+int initialize_steps = 500;  // Amount of steps until we start measuring
 
 // Physical Parameters
 int J = 1; // J>0: prefers alignment J<0: prefers anti alignment
@@ -30,6 +30,7 @@ double dT = 0.08;
 // Declaration of variables
 int H; // Hamiltonian
 double m; // Average megnetization
+int cluster_size;
 
 int lattice[N][N];
 int cluster_lattice[N][N];
@@ -164,11 +165,15 @@ void attempt_flip_cluster(bool debug = false){
     auto x = int(dsfmt_genrand()*N);
     auto y = int(dsfmt_genrand()*N);
 
+    cluster_lattice[x][y] = 1;
+
     calc_cluster(x,y,debug);
 
+    cluster_size = 0;
     for (int i = 0; i < N; ++i) {
         for (int j = 0; j < N; ++j) {
             if (cluster_lattice[i][j]){
+                cluster_size++;
                 lattice[i][j]*=-1;
             }
         }
@@ -187,32 +192,34 @@ int main() {
 
     T = T_i;
 
+    // Initialize output file
+    char buffer[128];
+    sprintf(buffer, "Average_cluster_size.dat");
+    FILE *fp = fopen(buffer, "w");
+    fprintf(fp, "#Temp \t Average Cluster size");
+
     for (double b = T_i; b <= T_f; b+=dT) {
         initialize_lattice(true);
         T = b;
-        // Initialize output file
-        char buffer[128];
-        sprintf(buffer, "IsingModel1_Wolff_T_%.8f.dat", T);
-        FILE *fp = fopen(buffer, "w");
-        fprintf(fp, "#Step \t Magnetization \t Energy");
+        printf("\n\nTemperature = %lf\n", T);
 
         int meas = 0;
         int step = 0;
+        double mean_cluster_size = 0;
         while (meas<measurements) {
             attempt_flip_cluster();
 
-            if ((step % output_data_steps == 0) & (step>initialize_steps)) {
-                hamiltonian();
-                magnetization();
-                fprintf(fp, "\n %d \t %lf \t %d", step, m, H);
+            if (step>initialize_steps) {
+                mean_cluster_size += double(cluster_size) / double(measurements);
                 meas++;
             }
-            if (step % output_console_steps == 0){
-                printf("\nstep = %d \t m = %lf \t E = %d", step, m, H);
+            if ((step> initialize_steps) & (step % output_console_steps == 0)){
+                printf("\nCluster size = %d", cluster_size);
             }
             step++;
         }
-        fclose(fp);
+        fprintf(fp,"\n%.2f \t %lf",T, mean_cluster_size);
     }
+    fclose(fp);
     return 0;
 }
