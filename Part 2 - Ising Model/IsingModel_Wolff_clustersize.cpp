@@ -15,8 +15,8 @@
 // Simulation Parameters
 int output_data_steps = 1;    // Write data to file and console
 int output_console_steps = 100;
-int measurements = 10000;        // Amount of measurements we want to do
-int initialize_steps = 1000;  // Amount of steps until we start measuring
+int measurements = 4000;        // Amount of measurements we want to do
+int initialize_steps = 500;  // Amount of steps until we start measuring
 
 // Physical Parameters
 int J = 1; // J>0: prefers alignment J<0: prefers anti alignment
@@ -30,6 +30,7 @@ double dT = 0.08;
 // Declaration of variables
 int H; // Hamiltonian
 double m; // Average megnetization
+int cluster_size;
 
 int lattice[N][N];
 int cluster_lattice[N][N];
@@ -154,23 +155,25 @@ void calc_cluster(int x, int y, bool debug = false){
 }
 
 void attempt_flip_cluster(bool debug = false){
-    // Refresh the cluster_lattice
     for (int k = 0; k < N; ++k) {
         for (int l = 0; l < N; ++l) {
             cluster_lattice[k][l]=0;
         }
     }
 
-    // Take a site at random
+    // Take a particle at random
     auto x = int(dsfmt_genrand()*N);
     auto y = int(dsfmt_genrand()*N);
-    // Generate a cluster, starting from the random site
+
+    cluster_lattice[x][y] = 1;
+
     calc_cluster(x,y,debug);
 
-    //Flip the spin of each site in the cluster
+    cluster_size = 0;
     for (int i = 0; i < N; ++i) {
         for (int j = 0; j < N; ++j) {
             if (cluster_lattice[i][j]){
+                cluster_size++;
                 lattice[i][j]*=-1;
             }
         }
@@ -180,6 +183,7 @@ void attempt_flip_cluster(bool debug = false){
 int main() {
     dsfmt_seed(time(NULL));
 
+
     initialize_lattice();
     magnetization();
     printf("\nInitial: \t E=%d \t m = %lf", H, m);
@@ -188,42 +192,34 @@ int main() {
 
     T = T_i;
 
-    // Loop over all temperatures for which we want data
+    // Initialize output file
+    char buffer[128];
+    sprintf(buffer, "Average_cluster_size.dat");
+    FILE *fp = fopen(buffer, "w");
+    fprintf(fp, "#Temp \t Average Cluster size");
+
     for (double b = T_i; b <= T_f; b+=dT) {
-        // Initialize the lattice
-        initialize_lattice();
+        initialize_lattice(true);
         T = b;
+        printf("\n\nTemperature = %lf\n", T);
 
-        // Initialize output file
-        char buffer[128];
-        sprintf(buffer, "IsingModel1_Wolff_T_%.8f.dat", T);
-        FILE *fp = fopen(buffer, "w");
-        fprintf(fp, "#Step \t Magnetization \t Energy");
-
-        // Loop that does all the (MC) work
         int meas = 0;
         int step = 0;
+        double mean_cluster_size = 0;
         while (meas<measurements) {
-            // Flip a cluster (not really an 'attempt' because it always flips a cluster
             attempt_flip_cluster();
 
-            // After some steps we reach equilibrium and start measuring
             if (step>initialize_steps) {
-                // Update the hamiltonian
-                hamiltonian();
-                // Update the magnetization
-                magnetization();
-                // Print them to a file
-                fprintf(fp, "\n %d \t %lf \t %d", step, m, H);
+                mean_cluster_size += double(cluster_size) / double(measurements);
                 meas++;
             }
-            // Sometimes we want to see data in the console
-            if (step % output_console_steps == 0){
-                printf("\nstep = %d \t m = %lf \t E = %d", step, m, H);
+            if ((step> initialize_steps) & (step % output_console_steps == 0)){
+                printf("\nCluster size = %d", cluster_size);
             }
             step++;
         }
-        fclose(fp);
+        fprintf(fp,"\n%.2f \t %lf",T, mean_cluster_size);
     }
+    fclose(fp);
     return 0;
 }
