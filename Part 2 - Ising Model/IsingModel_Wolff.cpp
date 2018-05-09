@@ -154,18 +154,20 @@ void calc_cluster(int x, int y, bool debug = false){
 }
 
 void attempt_flip_cluster(bool debug = false){
+    // Refresh the cluster_lattice
     for (int k = 0; k < N; ++k) {
         for (int l = 0; l < N; ++l) {
             cluster_lattice[k][l]=0;
         }
     }
 
-    // Take a particle at random
+    // Take a site at random
     auto x = int(dsfmt_genrand()*N);
     auto y = int(dsfmt_genrand()*N);
-
+    // Generate a cluster, starting from the random site
     calc_cluster(x,y,debug);
 
+    //Flip the spin of each site in the cluster
     for (int i = 0; i < N; ++i) {
         for (int j = 0; j < N; ++j) {
             if (cluster_lattice[i][j]){
@@ -178,7 +180,6 @@ void attempt_flip_cluster(bool debug = false){
 int main() {
     dsfmt_seed(time(NULL));
 
-
     initialize_lattice();
     magnetization();
     printf("\nInitial: \t E=%d \t m = %lf", H, m);
@@ -187,26 +188,36 @@ int main() {
 
     T = T_i;
 
+    // Loop over all temperatures for which we want data
     for (double b = T_i; b <= T_f; b+=dT) {
-        initialize_lattice(true);
+        // Initialize the lattice
+        initialize_lattice();
         T = b;
+
         // Initialize output file
         char buffer[128];
         sprintf(buffer, "IsingModel1_Wolff_T_%.8f.dat", T);
         FILE *fp = fopen(buffer, "w");
         fprintf(fp, "#Step \t Magnetization \t Energy");
 
+        // Loop that does all the (MC) work
         int meas = 0;
         int step = 0;
         while (meas<measurements) {
+            // Flip a cluster (not really an 'attempt' because it always flips a cluster
             attempt_flip_cluster();
 
-            if ((step % output_data_steps == 0) & (step>initialize_steps)) {
+            // After some steps we reach equilibrium and start measuring
+            if (step>initialize_steps) {
+                // Update the hamiltonian
                 hamiltonian();
+                // Update the magnetization
                 magnetization();
+                // Print them to a file
                 fprintf(fp, "\n %d \t %lf \t %d", step, m, H);
                 meas++;
             }
+            // Sometimes we want to see data in the console
             if (step % output_console_steps == 0){
                 printf("\nstep = %d \t m = %lf \t E = %d", step, m, H);
             }
