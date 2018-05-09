@@ -13,7 +13,7 @@
 
 
 // Simulation Parameters
-int output_data_steps = 50;    // Write data to file and console
+int output_data_steps = 10;    // Write data to file and console
 int output_console_steps = 50;
 int measurements = 1000;        // Amount of measurements we want to do
 int initialize_steps = 1000;  // Amount of steps until we start measuring
@@ -21,9 +21,9 @@ int initialize_steps = 1000;  // Amount of steps until we start measuring
 // Physical Parameters
 int J = 1; // J>0: prefers alignment J<0: prefers anti alignment
 double T;
-double T_i = 2.0;
-double T_f = 8.0;
-double dT = 0.3;
+double T_i = 5.0;
+double T_f = 5.0;
+double dT = 0.08;
 
 
 
@@ -118,7 +118,7 @@ void magnetization(){
 }
 
 int attempt_flip(){
-    // Perform flip of random particle
+    // Perform flip of random particle4
     int x = int(dsfmt_genrand()*N);
     int y = int(dsfmt_genrand()*N);
 
@@ -171,7 +171,6 @@ int main() {
 
             if (step % output_console_steps ==0){
                 printf("\nstep = %d \t m = %lf \t E = %d", step, m, H);
-
             }
             step++;
         }

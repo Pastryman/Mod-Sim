@@ -9,28 +9,28 @@
 #include "mt19937.h"
 
 
-#define N 100 // Amount of measurements we want to do
-#define measurements 1000 // Amount of measurements we want to do
+#define N 100
+#define measurements 1000
 
 
 // Simulation Parameters
-int output_data_steps = 50;    // Write data to file and console
+int output_data_steps = 10;    // Write data to file and console
 int output_console_steps = 50;
 int initialize_steps = 1000;  // Amount of steps until we start measuring
 
 // Physical Parameters
 int J = 1; // J>0: prefers alignment J<0: prefers anti alignment
 double T;
-double T_i = 5.3;
-double T_f = 5.3;
-double dT = 0.3;
+double T_i = 5.2;
+double T_f = 5.2;
+double dT = 0.08;
 
 
 
 // Declaration of variables
 int H; // Hamiltonian
 double m; // Average megnetization
-double m_list[measurements];
+double m_list[measurements]; // List of magnetizations
 
 int lattice[N][N];
 
@@ -110,8 +110,7 @@ void magnetization(){
     // Loop to get the total magnetization
     for (int i = 0; i < N; ++i) {
         for (int j = 0; j < N; ++j) {
-            int val = lattice[i][j];
-            m+= val;
+            m+=lattice[i][j];
         }
     }
 
@@ -120,9 +119,9 @@ void magnetization(){
 }
 
 int attempt_flip(){
-    // Perform flip of random particle
-    auto x = int(dsfmt_genrand()*N);
-    auto y = int(dsfmt_genrand()*N);
+    // Perform flip of random particle4
+    int x = int(dsfmt_genrand()*N);
+    int y = int(dsfmt_genrand()*N);
 
     // The change in energy
     int dH = -2*hamiltonian_one(x, y);
@@ -145,13 +144,14 @@ int main() {
     dsfmt_seed(time(NULL));
 
     initialize_lattice();
-    magnetization();
+
     printf("\nInitial: \t E=%d \t m = %lf", H, m);
 
     printf("\nInitializing done!\n");
 
 
     for (double b = T_i; b <= T_f; b += dT) {
+        std::cout << "Starting to measure on T = " << b;
         T = b;
 
         int meas = 0;
@@ -161,7 +161,7 @@ int main() {
             if (step > initialize_steps) {
                 magnetization();
                 //std::cout << "\nMean Magnetization = " << m;
-                m_list[meas]=m;
+                m_list[meas] = m;
                 meas++;
             }
             step++;
@@ -183,11 +183,15 @@ int main() {
                 m0_mt += m_list[step0] * m_list[step0 + d_step];
             }
             m0_mt = m0_mt / double(measurements - d_step);
-            printf("\n%d \t %lf", d_step, m0_mt);
+            //printf("\n%d \t %lf", d_step, m0_mt);
             fprintf(fp, "\n%d \t %lf", d_step, m0_mt);
         }
-        fclose(fp);
     }
-    return 0;
+
+    for (int i = 0; i < measurements; ++i) {
+        std::cout << "\nstep = " << i << "\tMagnetization = " << m_list[i];
+    }
+    return 0;1
+
 }
 
