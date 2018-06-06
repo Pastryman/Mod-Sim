@@ -96,7 +96,7 @@ void update_theta() {
     double theta_new[N][NDIM - 1];
 
     for (int n = 0; n < n_particles; ++n) {
-        double theta_nb[NDIM - 1] = {0.0};
+        double theta_nb[NDIM - 1][2] = {0.0};
         int neighbours = 0;
 
         for (int n_2 = 0; n_2 < n_particles; ++n_2) {
@@ -115,7 +115,8 @@ void update_theta() {
 
             if (dist2 <= pow(rcut, 2.0)) {
                 for (int k = 0; k < NDIM - 1; ++k) {
-                    theta_nb[k] += (theta[n_2][k]-M_PI); // Temp translation to let angles run between -pi and pi (for averages)
+                    theta_nb[k][0] += sin(theta[n_2][k]); // Temp translation to let angles run between -pi and pi (for averages)
+                    theta_nb[k][1] += cos(theta[n_2][k]); // Temp translation to let angles run between -pi and pi (for averages)
                     neighbours++;
                 }
             }
@@ -123,8 +124,11 @@ void update_theta() {
 
         for (int d = 0; d < NDIM - 1; ++d) {
             if (neighbours > 1) {
-                theta_nb[d] /= double(neighbours);
-                theta_new[n][d] = fmod(theta_nb[d] + (gaussian_rand() * eta) + M_PI, 2*M_PI);
+                theta_nb[d][0] /= double(neighbours);
+                theta_nb[d][1] /= double(neighbours);
+                double mean_angle = atan2(theta_nb[d][0],theta_nb[d][1]);
+
+                theta_new[n][d] = fmod(mean_angle + (gaussian_rand() * eta), 2*M_PI);
                 if (theta_new[n][d]<0){
                     theta_new[n][d]+=2*M_PI;
                 }
