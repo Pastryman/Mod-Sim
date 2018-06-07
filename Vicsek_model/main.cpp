@@ -35,16 +35,20 @@ const double dt = 0.01;
 
 /* Measurement variables */
 const int output_steps = 10;
-const double equi_time=.1;
+const int nr_measurements = 10000;
+const double equi_time=10;
 
 /* System variables */
-const double eta=0.1;
+double eta=0;
 int n_particles = 100;
+double d_eta=0.1;
+double eta_max=3;
 
 /* Simulation variables */
 double r[N][NDIM];
 double theta[N][NDIM-1];
 double box[NDIM];
+double order;
 
 void initialize_config(void) {
     for (int d = 0; d < NDIM; ++d) {
@@ -165,30 +169,63 @@ void write_data(double time){
 }
 
 double measure_order(){
-    double order = 0;
+    double order_x = 0;
+    double order_y = 0;
     for (int n = 0; n < n_particles; ++n) {
-        order += theta[n][0];
+        order_x += cos(theta[n][0]);
+        order_y += sin(theta[n][0]);
     }
-    order/=(n_particles*2*M_PI);
-
-    return order;
+    order = sqrt(order_x*order_x+order_y*order_y);
+    order /= n_particles;
 }
 
 int main(int argc, char* argv[]){
 
     dsfmt_seed(time(NULL));
 
-    double time;
+    while(eta<=eta_max){
 
-    initialize_config();
+        cout << "\nEta = "<< eta << "\n";
 
-    for (int i = 0; i < 1000; ++i) {
-        time=i*dt;
-        update_theta();
-        update_r();
-//        measure_order();
-        write_data(time);
+        double rho = n_particles/(L_box*L_box);
+
+        initialize_config();
+
+        char buffer[128];
+        sprintf(buffer, "Measurement_eta%.2f_N%d.dat",eta,n_particles);
+        FILE* fp = fopen(buffer, "w");
+        fprintf(fp, "# N = %lf \n",float(n_particles));
+        fprintf(fp, "# eta = %lf \n",float(eta));
+        fprintf(fp, "# rho = %lf \n",float(rho));
+        fprintf(fp, "# time \t order\n");
+
+        cout << "\nConfiguration initialized\n";
+
+        int measure = 0;
+        double time = 0;
+        int step=0;
+
+        while (measure<nr_measurements) {
+            update_theta();
+            update_r();
+            measure_order();
+
+            if(step % output_steps==0){
+                printf("\nTime: %.3f \t Order: %.5f",time,order);
+            }
+            if(time>equi_time){
+                fprintf(fp, "%.5f \t %lf\n",time,order);
+                measure++;
+            }
+            time+=dt;
+            step++;
+
+        }
+
+        fclose(fp);
+        eta+=d_eta;
     }
+
 
 
 

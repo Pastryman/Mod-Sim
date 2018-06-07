@@ -267,7 +267,7 @@ int main() {
         {
             // Output
             //std::cout << "After " << step << " steps, the current sudoku is:\n";
-            //print_sudoku(sudoku);
+            print_sudoku(sudoku);
             std::cout << "Current score is " << current_score << "\n";
             double acceptanceRatio = double(accepted) / (double(mc_steps) * double(output_steps));
             printf("Step %d. acceptance: %lf. T: %lf\n", step, acceptanceRatio,T);
