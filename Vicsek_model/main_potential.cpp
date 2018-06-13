@@ -11,7 +11,6 @@
 #include <chrono>  // for high_resolution_clock
 
 using namespace std;
-using namespace std::chrono;
 
 
 #ifndef M_PI
@@ -19,7 +18,7 @@ using namespace std::chrono;
 #endif
 
 #define NDIM 2
-#define N 100
+#define N 2000
 
 
 //GIT TEST
@@ -32,6 +31,7 @@ const bool debug = 0;
 /* Constants */
 const double L_box=1;
 const double rcut = 0.05; // WCA: pow(2,(1/6))*diameter; // LJ: 2.5
+const double repul_range=0.01;
 const double dt = 0.01;
 
 /* Measurement variables */
@@ -47,10 +47,11 @@ double eta_max=2;
 
 /* Simulation variables */
 double r[N][NDIM];
-int matrix[20][20];
 double theta[N][NDIM-1];
 double box[NDIM];
 double order;
+double F[N][NDIM];
+double F_old[N][NDIM];
 
 void initialize_config(void) {
     for (int d = 0; d < NDIM; ++d) {
@@ -64,6 +65,52 @@ void initialize_config(void) {
         theta[n][0] = (dsfmt_genrand() * 2 * M_PI);
         if (NDIM == 3) {
             theta[n][1] = (dsfmt_genrand() * M_PI);
+        }
+    }
+}
+
+void update_forces(){
+    
+    // Resetting Forces and Energy
+    //PotE=0;
+    for(int i = 0; i < n_particles; i++){
+        for (int d = 0; d<NDIM; d++) {
+            F[i][d]=0.0;
+        }
+    }
+
+    for(int i = 0; i < n_particles; i++){
+        for (int j = 0; j < i; j++){
+            double dist2=0;
+            double dist[NDIM];
+            for (int d = 0; d<NDIM; d++) {
+                // Distance between particles
+                dist[d] = r[i][d] - r[j][d];
+
+                // Nearest image convention
+                if(dist[d]>0.5*box[d]){
+                    dist[d] = -(box[d]-dist[d]);
+                }
+                if(dist[d]< -(0.5*box[d])){
+                    dist[d] = box[d]+dist[d];
+                }
+
+                // Squared distance
+                dist2 += dist[d]*dist[d];
+            }
+
+            // Cut off distance
+            if (dist2 < rcut*rcut){
+
+                // Apply the Force to the particles (in opposite direction)
+                for(int d=0; d<NDIM;d++){
+                    // Calculate the force on the particles using the hard potential
+                    double ff = 1+exp(abs(dist[d])/repul_range-2);
+
+                    F[i][d] += (dist[d]/abs(dist[d]))/ff; // Have a look at the direction of force
+                    F[j][d] -= (dist[d]/abs(dist[d]))/ff; // Have a look at the direction of force
+                }
+            }
         }
     }
 }
@@ -185,79 +232,51 @@ int main(int argc, char* argv[]){
 
     dsfmt_seed(time(NULL));
 
-    high_resolution_clock::time_point t1 = high_resolution_clock::now();
+    while(eta<=eta_max){
 
-    double time;
+        cout << "\nEta = "<< eta << "\n";
 
-    initialize_config();
+        double rho = n_particles/(L_box*L_box);
 
-    for (int i = 0; i < 1000; ++i) {
-        time=i*dt;
-        update_theta();
-        update_r();
-        write_data(time);
+        initialize_config();
+
+        char buffer[128];
+        sprintf(buffer, "Measurement_eta%.2f_N%d.dat",eta,n_particles);
+        FILE* fp = fopen(buffer, "w");
+        fprintf(fp, "# N = %lf \n",float(n_particles));
+        fprintf(fp, "# eta = %lf \n",float(eta));
+        fprintf(fp, "# rho = %lf \n",float(rho));
+        fprintf(fp, "# time \t order\n");
+
+        cout << "\nConfiguration initialized\n";
+
+        int measure = 0;
+        double time = 0;
+        int step=0;
+
+        while (measure<nr_measurements) {
+            update_theta();
+            update_r();
+            measure_order();
+
+            if(step % output_steps==0){
+                printf("\nTime: %.3f \t Order: %.5f",time,order);
+            }
+            if(time>equi_time){
+                fprintf(fp, "%.5f \t %lf\n",time,order);
+                measure++;
+            }
+            time+=dt;
+            step++;
+
+        }
+
+        fclose(fp);
+        eta+=d_eta;
     }
 
-    high_resolution_clock::time_point t2 = high_resolution_clock::now();
 
-    auto duration = duration_cast<microseconds>( t2 - t1 ).count();
 
-    cout << "\n" << duration << "\n";
+
     return 0;
-
-
-//    dsfmt_seed(time(NULL));
-//
-//    double time;
-//
-//    initialize_config();
-//
-//
-//    while(eta<=eta_max){
-//
-//        cout << "\nEta = "<< eta << "\n";
-//
-//        double rho = n_particles/(L_box*L_box);
-//
-//        initialize_config();
-//
-//        char buffer[128];
-//        sprintf(buffer, "Measurement_eta%.2f_N%d.dat",eta,n_particles);
-//        FILE* fp = fopen(buffer, "w");
-//        fprintf(fp, "# N = %lf \n",float(n_particles));
-//        fprintf(fp, "# eta = %lf \n",float(eta));
-//        fprintf(fp, "# rho = %lf \n",float(rho));
-//        fprintf(fp, "# time \t order\n");
-//
-//        cout << "\nConfiguration initialized\n";
-//
-//        int measure = 0;
-//        double time = 0;
-//        int step=0;
-//
-//        while (measure<nr_measurements) {
-//            update_theta();
-//            update_r();
-//            measure_order();
-//
-//            if(step % output_steps==0){
-//                printf("\nTime: %.3f \t Order: %.5f",time,order);
-//            }
-//            if(time>equi_time){
-//                fprintf(fp, "%.5f \t %lf\n",time,order);
-//                measure++;
-//            }
-//            time+=dt;
-//            step++;
-//
-//        }
-//
-//        fclose(fp);
-//        eta+=d_eta;
-//    }
-//
-//
-//
-//
-//    return 0;
 }
