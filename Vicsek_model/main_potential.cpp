@@ -31,6 +31,7 @@ const bool debug = 0;
 /* Constants */
 const double L_box=1;
 const double rcut = 0.05; // WCA: pow(2,(1/6))*diameter; // LJ: 2.5
+const double repul_range=0.01;
 const double dt = 0.01;
 
 /* Measurement variables */
@@ -49,6 +50,8 @@ double r[N][NDIM];
 double theta[N][NDIM-1];
 double box[NDIM];
 double order;
+double F[N][NDIM];
+double F_old[N][NDIM];
 
 void initialize_config(void) {
     for (int d = 0; d < NDIM; ++d) {
@@ -62,6 +65,52 @@ void initialize_config(void) {
         theta[n][0] = (dsfmt_genrand() * 2 * M_PI);
         if (NDIM == 3) {
             theta[n][1] = (dsfmt_genrand() * M_PI);
+        }
+    }
+}
+
+void update_forces(){
+    
+    // Resetting Forces and Energy
+    //PotE=0;
+    for(int i = 0; i < n_particles; i++){
+        for (int d = 0; d<NDIM; d++) {
+            F[i][d]=0.0;
+        }
+    }
+
+    for(int i = 0; i < n_particles; i++){
+        for (int j = 0; j < i; j++){
+            double dist2=0;
+            double dist[NDIM];
+            for (int d = 0; d<NDIM; d++) {
+                // Distance between particles
+                dist[d] = r[i][d] - r[j][d];
+
+                // Nearest image convention
+                if(dist[d]>0.5*box[d]){
+                    dist[d] = -(box[d]-dist[d]);
+                }
+                if(dist[d]< -(0.5*box[d])){
+                    dist[d] = box[d]+dist[d];
+                }
+
+                // Squared distance
+                dist2 += dist[d]*dist[d];
+            }
+
+            // Cut off distance
+            if (dist2 < rcut*rcut){
+
+                // Apply the Force to the particles (in opposite direction)
+                for(int d=0; d<NDIM;d++){
+                    // Calculate the force on the particles using the hard potential
+                    double ff = 1+exp(abs(dist[d])/repul_range-2);
+
+                    F[i][d] += (dist[d]/abs(dist[d]))/ff; // Have a look at the direction of force
+                    F[j][d] -= (dist[d]/abs(dist[d]))/ff; // Have a look at the direction of force
+                }
+            }
         }
     }
 }
