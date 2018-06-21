@@ -11,14 +11,14 @@
 #include <chrono>  // for high_resolution_clock
 
 using namespace std;
-
+using namespace std::chrono;
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
 
 #define NDIM 2
-#define N 2000
+#define N 10000
 
 
 //GIT TEST
@@ -30,8 +30,7 @@ const bool debug = 0;
 
 /* Constants */
 const double L_box=1;
-const double rcut = 0.05; // WCA: pow(2,(1/6))*diameter; // LJ: 2.5
-const double repul_range=0.01;
+const double rcut = 0.05*L_box; // WCA: pow(2,(1/6))*diameter; // LJ: 2.5
 const double dt = 0.01;
 
 /* Measurement variables */
@@ -41,7 +40,7 @@ const double equi_time=10;
 
 /* System variables */
 double eta=0;
-int n_particles = 250;
+int n_particles = 500;
 double d_eta=0.1;
 double eta_max=2;
 
@@ -49,9 +48,33 @@ double eta_max=2;
 double r[N][NDIM];
 double theta[N][NDIM-1];
 double box[NDIM];
-double order;
+const int cell_size = int(L_box/rcut);
+int grid[cell_size][cell_size][N];
+int cell_count[cell_size][cell_size];
 double F[N][NDIM];
 double F_old[N][NDIM];
+double order;
+
+
+void fill_matrix() {
+    int cel[2];
+    int cnt;
+    memset(grid, 0, sizeof(grid));
+    memset(cell_count, 0, sizeof(cell_count));
+
+//    cout << n_particles << "\n";
+    for (int n = 0; n < n_particles; n++) {
+//        cout << "Particle no. " << n << "\n";
+        for (int d = 0; d < NDIM; ++d) {
+            cel[d] = int(r[n][d] / rcut);
+        }
+        cnt = cell_count[cel[0]][cel[1]];
+        cell_count[cel[0]][cel[1]]+=1;
+        grid[cel[0]][cel[1]][cnt]=n;
+//        cout << "Particle coords: " << r[n][0] << "\t" << r[n][1] << "\n";
+//        cout << "Added to matrix: " << cel[0] << "\t" << cel[1] << "\t" << n << "\n";
+    }
+}
 
 void initialize_config(void) {
     for (int d = 0; d < NDIM; ++d) {
@@ -67,6 +90,7 @@ void initialize_config(void) {
             theta[n][1] = (dsfmt_genrand() * M_PI);
         }
     }
+    fill_matrix();
 }
 
 void update_forces(){
@@ -117,6 +141,8 @@ void update_forces(){
 
 
 void update_r() {
+    int cel[2];
+
     if (NDIM==2){
         double r_new[NDIM];
         for (int n = 0; n < n_particles; ++n) {
@@ -127,6 +153,10 @@ void update_r() {
                 if(r_new[d]>box[d]){r_new[d]=fmod(r_new[d],box[d]);}
                 r[n][d]=r_new[d];
             }
+            for (int d = 0; d < NDIM; ++d) {
+                cel[d] = int(r[n][d] / rcut);
+            }
+//            matrix[cel[0]][cel[1]].push_back(n);
         }
     }
     else if (NDIM==3){
@@ -143,51 +173,69 @@ void update_r() {
             }
         }
     }
+
+    fill_matrix();
+}
+
+double calc_dist2(int n1, int n2){
+    double dist2 = 0;
+    for (int d = 0; d < NDIM; ++d) {
+        double dist_temp = abs(r[n1][d] - r[n2][d]);
+
+        if (dist_temp > 0.5 * box[d]) {
+            dist_temp = box[d] - dist_temp;
+        }
+
+        dist2 += pow(dist_temp, 2.0);
+
+    }
+
+    return dist2;
 }
 
 void update_theta() {
     double theta_new[N][NDIM - 1];
 
     for (int n = 0; n < n_particles; ++n) {
-        double theta_nb[NDIM - 1][2] = {0.0};
+        auto cel_x = int(r[n][0] / rcut);
+        auto cel_y = int(r[n][1] / rcut);
         int neighbours = 0;
+        double theta_nb[NDIM - 1][2] = {0.0};
 
-        for (int n_2 = 0; n_2 < n_particles; ++n_2) {
-
-            double dist2 = 0;
-            for (int d = 0; d < NDIM; ++d) {
-                double dist_temp = abs(r[n][d] - r[n_2][d]);
-
-                if (dist_temp > 0.5 * box[d]) {
-                    dist_temp = box[d] - dist_temp;
+        for (int i = -1; i <= 1; ++i) {
+            for (int j = -1; j <= 1; ++j) {
+                if (cel_x + i < 0 | cel_y + j < 0 | cel_x + i > 19 | cel_y + j > 19) {
+                    continue;
                 }
 
-                dist2 += pow(dist_temp, 2.0);
+                for (int k = 0; k < cell_count[cel_x + i][cel_y + j]; ++k) {
+//                    cout << "Particle: " << n << "\tNeighbouring particle: " << grid[cel_x + i][cel_y + j][k] << "\n";
 
-            }
+                    int n2 = grid[cel_x + i][cel_y + j][k];
 
-            if (dist2 <= pow(rcut, 2.0)) {
-                for (int k = 0; k < NDIM - 1; ++k) {
-                    theta_nb[k][0] += sin(theta[n_2][k]); // Temp translation to let angles run between -pi and pi (for averages)
-                    theta_nb[k][1] += cos(theta[n_2][k]); // Temp translation to let angles run between -pi and pi (for averages)
-                    neighbours++;
+                    double dist2 = calc_dist2(n, n2);
+                    if (dist2 <= pow(rcut, 2.0)) {
+                        for (int l = 0; l < NDIM - 1; ++l) {
+                            theta_nb[l][0] += sin(
+                                    theta[n2][l]); // Temp translation to let angles run between -pi and pi (for averages)
+                            theta_nb[l][1] += cos(
+                                    theta[n2][l]); // Temp translation to let angles run between -pi and pi (for averages)
+                            neighbours++;
+                        }
+                    }
                 }
+
             }
         }
 
         for (int d = 0; d < NDIM - 1; ++d) {
-            if (neighbours > 1) {
-                theta_nb[d][0] /= double(neighbours);
-                theta_nb[d][1] /= double(neighbours);
-                double mean_angle = atan2(theta_nb[d][0],theta_nb[d][1]);
+            theta_nb[d][0] /= double(neighbours);
+            theta_nb[d][1] /= double(neighbours);
+            double mean_angle = atan2(theta_nb[d][0], theta_nb[d][1]);
 
-                theta_new[n][d] = fmod(mean_angle + (gaussian_rand() * eta), 2*M_PI);
-                if (theta_new[n][d]<0){
-                    theta_new[n][d]+=2*M_PI;
-                }
-            }
-            else {
-                theta_new[n][d]=theta[n][d];
+            theta_new[n][d] = fmod(mean_angle + (gaussian_rand() * eta), 2 * M_PI);
+            if (theta_new[n][d] < 0) {
+                theta_new[n][d] += 2 * M_PI;
             }
         }
     }
@@ -198,6 +246,7 @@ void update_theta() {
         }
     }
 }
+
 
 void write_data(double time){
     char buffer[128];
@@ -229,8 +278,10 @@ double measure_order(){
 }
 
 int main(int argc, char* argv[]){
-
+    cout << "Cell size = " << L_box/rcut << "\n";
     dsfmt_seed(time(NULL));
+    initialize_config();
+    high_resolution_clock::time_point t1 = high_resolution_clock::now();
 
     while(eta<=eta_max){
 
@@ -240,8 +291,9 @@ int main(int argc, char* argv[]){
 
         initialize_config();
 
+
         char buffer[128];
-        sprintf(buffer, "Measurement_eta%.2f_N%d.dat",eta,n_particles);
+        sprintf(buffer, "Measurement_N%d_eta%.2f.dat",n_particles,eta);
         FILE* fp = fopen(buffer, "w");
         fprintf(fp, "# N = %lf \n",float(n_particles));
         fprintf(fp, "# eta = %lf \n",float(eta));
@@ -275,8 +327,9 @@ int main(int argc, char* argv[]){
         eta+=d_eta;
     }
 
-
-
+    high_resolution_clock::time_point t2 = high_resolution_clock::now();
+    auto duration = duration_cast<microseconds>( t2 - t1 ).count();
+    cout << "\nDuration was: " << duration;
 
     return 0;
 }

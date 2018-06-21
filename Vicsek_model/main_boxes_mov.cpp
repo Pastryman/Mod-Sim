@@ -18,7 +18,7 @@ using namespace std::chrono;
 #endif
 
 #define NDIM 2
-#define N 4000
+#define N 1000
 
 
 //GIT TEST
@@ -29,30 +29,26 @@ const bool debug = 0;
 
 
 /*System variables*/
-const int n_particles = N;
+int n_particles=400;
 //n_particles = [100,500,1000,1500,2000]
 
 /*System constants*/
-const double density = 4.0;
-const double L_box = pow(double(n_particles)/density,0.5);
-const double rcut = 1.0; // WCA: pow(2,(1/6))*diameter; // LJ: 2.5
+const double eta = 0;
+const double L_box = 10;
+const double rcut = L_box*0.05; // WCA: pow(2,(1/6))*diameter; // LJ: 2.5
 
 /* Measurement constants */
 const int output_steps = 10;
-const int nr_measurements = 10000;
 const double equi_time=50;
 
 /* System variables */
 double dt = 0.01;
-double eta=0.0;
-double d_eta=0.03;
-double eta_max=1.0;
 
 /* Simulation variables */
 double r[N][NDIM];
 double theta[N][NDIM-1];
 double box[NDIM];
-const int no_of_cells = int(ceil(L_box));
+const int no_of_cells = int(ceil(L_box/rcut));
 int grid[no_of_cells][no_of_cells][N];
 int cell_count[no_of_cells][no_of_cells];
 
@@ -236,68 +232,22 @@ double measure_order(){
 }
 
 int main(int argc, char* argv[]){
-    cout << "rho = " << density << "\n";
-    cout << "Cell size = " << no_of_cells << "\n";
-    cout << "N = " << n_particles << "\n";
-    cout << "L_box = " << L_box << "\n";
-    cout << "rcut = " << rcut << "\n";
-    cout << "eta = " << eta << "\n";
-    cout << "eta_max = " << eta_max << "\n";
 
     dsfmt_seed(time(NULL));
+
+    double time;
+
     initialize_config();
 
-    high_resolution_clock::time_point t1 = high_resolution_clock::now();
+    for (int i = 0; i < 2000; ++i) {
+        time=i*dt;
+        update_theta();
+        update_r();
+        write_data(time);
 
-    while(eta<=eta_max){
-        cout << "\nEta = "<< eta << "\n";
-        cout << "\nN = "<< n_particles << "\n";
-
-
-//        double rho = n_particles/(L_box*L_box);
-
-        initialize_config();
-
-
-        char buffer[128];
-        cout << "eta = " << eta << "\tN = " << n_particles << "\n";
-        sprintf(buffer, "Measurement_eta%.4f_N%d.dat",eta,n_particles);
-        FILE* fp = fopen(buffer, "w");
-        fprintf(fp, "# N = %lf \n",float(n_particles));
-        fprintf(fp, "# eta = %lf \n",float(eta));
-        fprintf(fp, "# rho = %lf \n",float(density));
-        fprintf(fp, "# time \t order\n");
-
-        cout << "\nConfiguration initialized\n";
-
-        int measure = 0;
-        double time = 0;
-        int step=0;
-
-        while (measure<nr_measurements) {
-            update_theta();
-            update_r();
-            measure_order();
-
-            if(step % output_steps==0){
-                printf("\nTime: %.3f \t Order: %.5f",time,order);
-            }
-            if(time>equi_time){
-                fprintf(fp, "%.5f \t %lf\n",time,order);
-                measure++;
-            }
-            time+=dt;
-            step++;
-
+        if (i%100==0){
+            cout << "\nIteration: " << i;
         }
-
-        fclose(fp);
-        eta+=d_eta;
     }
-
-    high_resolution_clock::time_point t2 = high_resolution_clock::now();
-    auto duration = duration_cast<microseconds>( t2 - t1 ).count();
-    cout << "\nDuration was: " << duration;
-
     return 0;
 }

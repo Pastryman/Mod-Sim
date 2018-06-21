@@ -29,12 +29,12 @@ const bool debug = 0;
 
 
 /*System variables*/
-const int n_particles = N;
+int n_particles;
 //n_particles = [100,500,1000,1500,2000]
 
 /*System constants*/
-const double density = 4.0;
-const double L_box = pow(double(n_particles)/density,0.5);
+const double eta = 0.63;
+const double L_box = 20;
 const double rcut = 1.0; // WCA: pow(2,(1/6))*diameter; // LJ: 2.5
 
 /* Measurement constants */
@@ -44,9 +44,9 @@ const double equi_time=50;
 
 /* System variables */
 double dt = 0.01;
-double eta=0.0;
-double d_eta=0.03;
-double eta_max=1.0;
+double density=4;
+double d_density=2;
+double max_density=11;
 
 /* Simulation variables */
 double r[N][NDIM];
@@ -242,26 +242,24 @@ int main(int argc, char* argv[]){
     cout << "L_box = " << L_box << "\n";
     cout << "rcut = " << rcut << "\n";
     cout << "eta = " << eta << "\n";
-    cout << "eta_max = " << eta_max << "\n";
 
     dsfmt_seed(time(NULL));
     initialize_config();
 
     high_resolution_clock::time_point t1 = high_resolution_clock::now();
 
-    while(eta<=eta_max){
-        cout << "\nEta = "<< eta << "\n";
-        cout << "\nN = "<< n_particles << "\n";
-
-
-//        double rho = n_particles/(L_box*L_box);
-
+    while(density<=max_density){
+        n_particles = int(L_box*L_box*density);
         initialize_config();
+
+        cout << "\nDensity = "<< density;
+        cout << "\nN = " << n_particles << "\n";
+
+
 
 
         char buffer[128];
-        cout << "eta = " << eta << "\tN = " << n_particles << "\n";
-        sprintf(buffer, "Measurement_eta%.4f_N%d.dat",eta,n_particles);
+        sprintf(buffer, "Measurement_eta%.2f_rho%.3f_dens.dat",eta,density);
         FILE* fp = fopen(buffer, "w");
         fprintf(fp, "# N = %lf \n",float(n_particles));
         fprintf(fp, "# eta = %lf \n",float(eta));
@@ -292,7 +290,7 @@ int main(int argc, char* argv[]){
         }
 
         fclose(fp);
-        eta+=d_eta;
+        density+=d_density;
     }
 
     high_resolution_clock::time_point t2 = high_resolution_clock::now();
