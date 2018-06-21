@@ -14,27 +14,28 @@
 
 
 
-const double eta = pow(5,-2); //[10^-4,0.1] // packing fraction
-const double sigma = 0.1; //[0.001,0.10] charge density
-const int M = 10000;
+//const double eta = pow(5,-2); //[10^-4,0.1] // packing fraction
+const int M = 100000;
+const double ka = 5.;//0.62//[0.1,10] k^-1= debye length
 
-
-double ka = 0.1; //[0.1,10] k^-1= debye length
-double ka_max = 10;
-double d_ka = 0.005;
+double eta = pow(10,-4.);
+double eta_max = 0.1;
+double d_eta = 0.0001;
 
 // Measurement variables
-double phi0_start = 0;
-double phi0_max = 1000000;
+double phi1_start = 0;
+double phi1_max = 1000000;
 double delta_start = 50;
-double delta_min = 0.0000000000001;
+double delta_min = 0.000000000000001;
 const double d_phi_max=0.000000001;
 
 // Variable declaration
-double phi_0;
+const double phi_0 = 1.0;
 double phi_1;
 double phi_0_temp;
 double phi_1_temp;
+double sigma; //[0.001,0.10] charge density
+
 
 // System constants
 double a; // Colloid size (nm)
@@ -84,22 +85,22 @@ int main() {
 
     char buffer[128];
 //    sprintf(buffer, "phi_eta%.5f_ka%.1f_sigma%.3f.dat", eta, ka, sigma);
-    sprintf(buffer, "phi_eta%.5f_kaM_sigma%.3f.dat", eta, sigma);
+    sprintf(buffer, "sigma_etaM_ka%.2f.dat", ka);
     FILE *fp = fopen(buffer, "w");
-    fprintf(fp, "#phi(0)\tphi(R)\teta\tka\tsigma\tdelta");
+    fprintf(fp, "#phi(0)\tphi(1)\teta\tka\tsigma\tdelta");
 
-    while (ka < ka_max) {
+    while (eta < eta_max) {
 
         // System constants
         a = 1; // Colloid size (nm)
         R = a * pow(eta, -1. / 3.);
         k = ka / a;
-        Z = sigma * 4 * M_PI * pow(a, 2.);
+        //Z = sigma * 4 * M_PI * pow(a, 2.);
         lb = 0.72;
         h = (R - a) / M;
 
-        phi_0 = phi0_start;
-        phi_1 = phi_0 - (Z * lb * h / pow(a, 2));
+        phi_1 = phi1_start;
+        //phi_1 = phi_0 - (Z * lb * h / pow(a, 2));
         int sign = -1;
         double phi_diff = INFINITY;
         int counter = 0;
@@ -117,7 +118,7 @@ int main() {
                 phi_diff = phi_1_temp - phi_0_temp;
                 if (abs(phi_diff) < d_phi_max) {
                     std::cout << "\n\n Found the optimal phi(0)!!!!!";
-                    printf("\n phi(0) = %.15f", phi_0);
+                    printf("\n phi(1) = %.15f", phi_1);
                     printf("\n phi(M)-phi(M-1) = %.15f", phi_diff);
                     break;
                 } else if (phi_diff > 0) {
@@ -133,10 +134,10 @@ int main() {
                     delta *= 0.5;
                     printf("\nSIGN FLIP. delta is now %.15f", delta);
                 }
-                phi_0 = phi_0 + delta;
-                phi_1 = phi_0 - (Z * lb * h / pow(a, 2));
+//                phi_0 = phi_0 + delta;
+                phi_1 = phi_1 + delta;
                 if (delta<delta_min) {
-                    phi_0 = -1;
+                    phi_1 = -1;
                     break;
                 }
                 continue;
@@ -146,10 +147,10 @@ int main() {
                     delta *= 0.5;
                     printf("\nSIGN FLIP. delta is now %.15f", delta);
                 }
-                phi_0 = phi_0 - delta;
-                phi_1 = phi_0 - (Z * lb * h / pow(a, 2));
+//                phi_0 = phi_0 - delta;
+                phi_1 = phi_1 - delta;
                 if (delta<delta_min) {
-                    phi_0 = -1;
+                    phi_1 = -1;
                     break;
                 }
                 continue;
@@ -159,13 +160,20 @@ int main() {
         }
 
         std::cout << "\nh = " << h;
-        std::cout << "\nM = " << M;
 
-        fprintf(fp, "\n%lf\t%lf\t%lf\t%lf\t%lf\t%lf", phi_0, phi_1_temp, eta, ka, sigma, delta);
+        if (phi_1 == -1) {
+            sigma = -1;
+        }
+        else {
+            sigma = (phi_0-phi_1) / (4 * M_PI * h * lb);
+        }
+        std::cout << "\nsigma = " << sigma;
 
-        std::cout << "\nka = " << ka;
+        fprintf(fp, "\n%lf\t%lf\t%lf\t%lf\t%lf\t%lf", phi_0, phi_1, eta, ka, sigma, delta);
 
-        ka+=d_ka;
+        std::cout << "\neta = " << eta;
+
+        eta+=d_eta;
 
     }
     fclose(fp);
